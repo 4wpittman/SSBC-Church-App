@@ -113,6 +113,13 @@
             <div class="field"><label>Live title</label><input id="s_liveTitle" placeholder="Live now · Sunday worship"></div>
             <div class="field"><label>Live subtitle</label><input id="s_liveSub" placeholder="Tap to watch the service"></div>
           </div>
+          <div class="field">
+            <label>Facebook Live video link</label>
+            <input id="s_liveVideoUrl" placeholder="https://www.facebook.com/yourchurch/videos/123456789">
+          </div>
+          <div class="card-desc" style="font-size:12px; color:var(--ink-soft); margin-bottom:14px;">
+            When you go live on Facebook, open that post, click the three dots → Copy Link, and paste it here along with checking "Show Live now banner." The app will play the actual video, not just link out to Facebook.
+          </div>
           <button class="btn gold" onclick="saveSettings()">Save</button>
           <div class="status-msg" id="settingsStatus"></div>
         </div>
@@ -340,6 +347,7 @@ async function loadSettingsForm(){
   document.getElementById('s_isLive').checked = !!s.is_live;
   document.getElementById('s_liveTitle').value = s.live_title || '';
   document.getElementById('s_liveSub').value = s.live_sub || '';
+  document.getElementById('s_liveVideoUrl').value = s.live_video_url || '';
 }
 window.saveSettings = async function(){
   const statusEl = document.getElementById('settingsStatus');
@@ -351,7 +359,8 @@ window.saveSettings = async function(){
       phone: document.getElementById('s_phone').value.trim(),
       is_live: document.getElementById('s_isLive').checked,
       live_title: document.getElementById('s_liveTitle').value.trim(),
-      live_sub: document.getElementById('s_liveSub').value.trim()
+      live_sub: document.getElementById('s_liveSub').value.trim(),
+      live_video_url: document.getElementById('s_liveVideoUrl').value.trim()
     }).eq('id',1);
     if(error) throw error;
     statusEl.textContent = 'Saved.';

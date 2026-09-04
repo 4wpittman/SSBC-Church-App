@@ -336,13 +336,15 @@
     <!-- LIVE STREAM -->
     <div class="screen" id="screen-live">
       <div class="mini-header"><button class="back-btn" onclick="showTab('home')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg></button><h2>Watch live</h2></div>
-      <div class="video-frame">
-        <svg viewBox="0 0 24 24" fill="none" stroke="#C7D0E0" stroke-width="1.6"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M10 9.5v5l4-2.5z" fill="#C7D0E0" stroke="none"/></svg>
-        <div class="vf-title">Live video connects here</div>
-        <div class="vf-sub">Embed your YouTube/Facebook Live stream ID</div>
+      <div id="liveVideoContainer">
+        <div class="video-frame">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#C7D0E0" stroke-width="1.6"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M10 9.5v5l4-2.5z" fill="#C7D0E0" stroke="none"/></svg>
+          <div class="vf-title">Not live right now</div>
+          <div class="vf-sub">Check back during service times</div>
+        </div>
       </div>
       <div class="section">
-        <div class="card-desc">This screen is ready for a live embed — once you have a streaming provider (YouTube Live, Facebook Live, or Church Online Platform), we drop the embed code in here and it plays right in the app during service times.</div>
+        <div class="card-desc" id="liveVideoNote">This screen is ready for a live embed — once you have a streaming provider (YouTube Live, Facebook Live, or Church Online Platform), we drop the embed code in here and it plays right in the app during service times.</div>
       </div>
     </div>
 
@@ -560,12 +562,27 @@ async function loadSettings(){
     document.getElementById('giveTextPhone').textContent = s.phone || '—';
     document.getElementById('giveMailAddress').textContent = s.address_line || '—';
     const liveBanner = document.getElementById('liveBanner');
+    const liveContainer = document.getElementById('liveVideoContainer');
+    const liveNote = document.getElementById('liveVideoNote');
     if(s.is_live){
       document.getElementById('liveTitleText').textContent = s.live_title || 'Live now';
       document.getElementById('liveSubText').textContent = s.live_sub || 'Tap to watch the service';
       liveBanner.style.display = 'flex';
     } else {
       liveBanner.style.display = 'none';
+    }
+    if(s.is_live && s.live_video_url){
+      const encoded = encodeURIComponent(s.live_video_url);
+      liveContainer.innerHTML = '<div style="margin:18px 20px 0; border-radius:8px 8px 20px 20px; overflow:hidden; aspect-ratio:16/9; background:var(--navy-deep);">'
+        + '<iframe src="https://www.facebook.com/plugins/video.php?href='+encoded+'&show_text=false" '
+        + 'style="width:100%; height:100%; border:none; overflow:hidden;" scrolling="no" frameborder="0" '
+        + 'allowfullscreen="true" allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"></iframe></div>';
+      liveNote.textContent = 'Watching live from Facebook. If the video doesn\'t load, it may still be starting up on Facebook\'s end — give it a moment.';
+    } else {
+      liveContainer.innerHTML = '<div class="video-frame">'
+        + '<svg viewBox="0 0 24 24" fill="none" stroke="#C7D0E0" stroke-width="1.6"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M10 9.5v5l4-2.5z" fill="#C7D0E0" stroke="none"/></svg>'
+        + '<div class="vf-title">Not live right now</div><div class="vf-sub">Check back during service times</div></div>';
+      liveNote.textContent = 'This screen plays the church\'s Facebook Live video automatically once staff mark a service as live.';
     }
   }catch(e){ console.error('settings load failed', e); }
 }
