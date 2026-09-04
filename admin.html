@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Staff Dashboard — Smiths Station Baptist Church</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --navy:#1C2B4A; --navy-deep:#131E33; --gold:#D9A441; --gold-soft:#F0DDB0;
+    --paper:#F8F6F1; --paper-dim:#EFEBE1; --brick:#8B4A3B; --sage:#6E7F5C;
+    --ink:#2A2520; --ink-soft:#6B655C; --danger:#B3432D;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0; font-family:'Inter',sans-serif; background:var(--paper); color:var(--ink);}
+  h1,h2,h3{font-family:'Fraunces',serif; margin:0; font-weight:600;}
+
+  #loginScreen{min-height:100vh; display:flex; align-items:center; justify-content:center; padding:20px;}
+  .login-box{background:#fff; border:1px solid #E4DFD3; border-radius:16px; padding:32px 28px; width:100%; max-width:360px;}
+  .login-box h1{font-size:20px; color:var(--navy); margin-bottom:4px;}
+  .login-box .sub{font-size:13px; color:var(--ink-soft); margin-bottom:22px;}
+  .field{margin-bottom:14px;}
+  .field label{display:block; font-size:12.5px; font-weight:600; color:var(--ink-soft); margin-bottom:6px;}
+  .field input, .field select, .field textarea{width:100%; border:1px solid #DCD5C4; background:#fff; border-radius:8px; padding:10px 12px; font-family:inherit; font-size:14px; color:var(--ink);}
+  .field textarea{min-height:70px; resize:vertical;}
+  .btn{background:var(--navy); color:#fff; border:none; padding:11px 16px; border-radius:8px; font-size:14px; font-weight:700; font-family:inherit; cursor:pointer;}
+  .btn.gold{background:var(--gold); color:var(--navy-deep);}
+  .btn.danger{background:var(--danger); color:#fff;}
+  .btn.ghost{background:none; color:var(--navy); border:1px solid #DCD5C4;}
+  .btn.small{padding:7px 12px; font-size:12.5px;}
+  .btn.block{width:100%;}
+  .toggle-link{background:none; border:none; color:var(--brick); font-size:12.5px; font-weight:600; cursor:pointer; font-family:inherit; padding:0; margin-top:14px;}
+  #loginError{color:var(--danger); font-size:13px; margin-top:10px; display:none;}
+  #loginNotice{color:var(--sage); font-size:13px; margin-top:10px; display:none;}
+
+  #dashboard{display:none;}
+  .topbar{background:var(--navy); color:#fff; padding:14px 20px; display:flex; align-items:center; justify-content:space-between;}
+  .topbar h1{font-size:16px;}
+  .topbar .who{font-size:12px; color:var(--gold-soft); margin-top:2px;}
+  .layout{display:flex; max-width:1100px; margin:0 auto;}
+  .nav{width:190px; flex-shrink:0; padding:20px 12px; border-right:1px solid #E4DFD3; min-height:calc(100vh - 60px);}
+  .nav button{display:block; width:100%; text-align:left; background:none; border:none; padding:10px 12px; border-radius:8px; font-size:13.5px; font-weight:600; color:var(--ink-soft); cursor:pointer; margin-bottom:2px; font-family:inherit;}
+  .nav button.active{background:var(--paper-dim); color:var(--navy);}
+  .content{flex:1; padding:24px 28px;}
+  .panel{display:none;}
+  .panel.active{display:block;}
+  .panel-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:18px;}
+  .panel-head h2{font-size:19px;}
+
+  table{width:100%; border-collapse:collapse; background:#fff; border:1px solid #E4DFD3; border-radius:10px; overflow:hidden;}
+  th{text-align:left; font-size:11.5px; text-transform:uppercase; letter-spacing:.03em; color:var(--ink-soft); background:var(--paper-dim); padding:10px 12px;}
+  td{padding:10px 12px; font-size:13.5px; border-top:1px solid #EFEBE1;}
+  td.actions{white-space:nowrap; text-align:right;}
+  td.actions button{margin-left:6px;}
+
+  .form-card{background:#fff; border:1px solid #E4DFD3; border-radius:12px; padding:18px 20px; margin-top:16px; max-width:480px;}
+  .form-card h3{font-size:14px; margin-bottom:14px;}
+  .form-row{display:flex; gap:10px;}
+  .form-row .field{flex:1;}
+  .status-msg{font-size:12.5px; margin-top:10px; display:none;}
+  .status-msg.ok{color:var(--sage);}
+  .status-msg.err{color:var(--danger);}
+  .empty-note{font-size:13px; color:var(--ink-soft); padding:14px 0;}
+</style>
+</head>
+<body>
+
+<div id="loginScreen">
+  <div class="login-box">
+    <h1 id="loginHeading">Staff dashboard</h1>
+    <div class="sub" id="loginSub">Sign in to edit content for Smiths Station Baptist Church.</div>
+    <div class="field"><label>Email</label><input type="email" id="loginEmail" placeholder="you@ssbc.org"></div>
+    <div class="field"><label>Password</label><input type="password" id="loginPassword" placeholder="At least 6 characters"></div>
+    <button class="btn block" id="loginSubmitBtn" onclick="doLogin()">Sign in</button>
+    <div id="loginError"></div>
+    <div id="loginNotice"></div>
+    <button class="toggle-link" onclick="toggleMode()" id="toggleModeBtn">First time here? Create a staff account →</button>
+  </div>
+</div>
+
+<div id="dashboard">
+  <div class="topbar">
+    <div>
+      <h1>Smiths Station Baptist — Staff dashboard</h1>
+      <div class="who" id="whoText"></div>
+    </div>
+    <button class="btn ghost" style="color:#fff; border-color:rgba(255,255,255,.4);" onclick="doLogout()">Sign out</button>
+  </div>
+  <div class="layout">
+    <div class="nav">
+      <button class="active" data-panel="settings" onclick="showPanel('settings')">Service times &amp; live</button>
+      <button data-panel="sermons" onclick="showPanel('sermons')">Sermons</button>
+      <button data-panel="events" onclick="showPanel('events')">Events</button>
+      <button data-panel="leadership" onclick="showPanel('leadership')">Leadership</button>
+      <button data-panel="deacons" onclick="showPanel('deacons')">Deacons</button>
+      <button data-panel="groups" onclick="showPanel('groups')">Connect groups</button>
+      <button data-panel="directory" onclick="showPanel('directory')">Directory</button>
+      <button data-panel="prayers" onclick="showPanel('prayers')">Prayer requests</button>
+    </div>
+    <div class="content">
+
+      <div class="panel active" id="panel-settings">
+        <div class="panel-head"><h2>Service times &amp; live status</h2></div>
+        <div class="form-card">
+          <div class="form-row">
+            <div class="field"><label>Sunday times</label><input id="s_sunday" placeholder="9:30 & 10:45am"></div>
+            <div class="field"><label>Wednesday times</label><input id="s_wed" placeholder="6:30pm"></div>
+          </div>
+          <div class="field"><label>Address</label><input id="s_address" placeholder="2210 Lee Rd, Smiths Station, AL 36877"></div>
+          <div class="field"><label>Phone</label><input id="s_phone" placeholder="(334) 555-0142"></div>
+          <div class="field"><label><input type="checkbox" id="s_isLive" style="width:auto; margin-right:6px;">Show "Live now" banner</label></div>
+          <div class="form-row">
+            <div class="field"><label>Live title</label><input id="s_liveTitle" placeholder="Live now · Sunday worship"></div>
+            <div class="field"><label>Live subtitle</label><input id="s_liveSub" placeholder="Tap to watch the service"></div>
+          </div>
+          <button class="btn gold" onclick="saveSettings()">Save</button>
+          <div class="status-msg" id="settingsStatus"></div>
+        </div>
+      </div>
+
+      <div class="panel" id="panel-sermons">
+        <div class="panel-head"><h2>Sermons</h2><button class="btn small gold" onclick="openForm('sermons')">Add sermon</button></div>
+        <table><thead><tr><th>Title</th><th>Speaker</th><th>Date</th><th></th></tr></thead><tbody id="tbl-sermons"></tbody></table>
+        <div id="form-sermons"></div>
+      </div>
+
+      <div class="panel" id="panel-events">
+        <div class="panel-head"><h2>Events</h2><button class="btn small gold" onclick="openForm('events')">Add event</button></div>
+        <table><thead><tr><th>Title</th><th>Date</th><th>Time</th><th></th></tr></thead><tbody id="tbl-events"></tbody></table>
+        <div id="form-events"></div>
+      </div>
+
+      <div class="panel" id="panel-leadership">
+        <div class="panel-head"><h2>Leadership</h2><button class="btn small gold" onclick="openForm('leadership')">Add staff member</button></div>
+        <table><thead><tr><th>Name</th><th>Role</th><th></th></tr></thead><tbody id="tbl-leadership"></tbody></table>
+        <div id="form-leadership"></div>
+      </div>
+
+      <div class="panel" id="panel-deacons">
+        <div class="panel-head"><h2>Deacons</h2><button class="btn small gold" onclick="openForm('deacons')">Add deacon</button></div>
+        <table><thead><tr><th>Name</th><th>Role</th><th>Phone</th><th></th></tr></thead><tbody id="tbl-deacons"></tbody></table>
+        <div id="form-deacons"></div>
+      </div>
+
+      <div class="panel" id="panel-groups">
+        <div class="panel-head"><h2>Connect groups</h2><button class="btn small gold" onclick="openForm('groups')">Add group</button></div>
+        <table><thead><tr><th>Title</th><th>Category</th><th>Meets</th><th></th></tr></thead><tbody id="tbl-groups"></tbody></table>
+        <div id="form-groups"></div>
+      </div>
+
+      <div class="panel" id="panel-directory">
+        <div class="panel-head"><h2>Directory</h2><button class="btn small gold" onclick="openForm('directory')">Add entry</button></div>
+        <table><thead><tr><th>Name</th><th>Role</th><th></th></tr></thead><tbody id="tbl-directory"></tbody></table>
+        <div id="form-directory"></div>
+      </div>
+
+      <div class="panel" id="panel-prayers">
+        <div class="panel-head"><h2>Prayer requests</h2></div>
+        <table><thead><tr><th>Name</th><th>Request</th><th>Sharing</th><th>Received</th><th>Prayed for?</th><th></th></tr></thead><tbody id="tbl-prayers"></tbody></table>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { supabaseConfig } from "./supabase-config.js";
+
+const supabase = createClient(supabaseConfig.url, supabaseConfig.anonKey);
+
+let mode = 'signin';
+
+const SCHEMAS = {
+  sermons: [['title','Title','text'],['series','Series','text'],['speaker','Speaker','text'],['sermon_date','Date','date'],['duration','Duration (e.g. 18:42)','text']],
+  events: [['title','Title','text'],['event_date','Date','date'],['time','Time (e.g. 10:45am)','text'],['location','Location','text']],
+  leadership: [['name','Name','text'],['role','Role','text'],['bio','Bio','textarea'],['initials','Initials (optional)','text']],
+  deacons: [['name','Name','text'],['role','Role','text'],['phone','Phone','text'],['initials','Initials (optional)','text']],
+  groups: [['title','Title','text'],['category',"Category (men/women/youth/young/senior)",'text'],['meta','Meets (e.g. Tuesdays, 6:00am · Fellowship Hall)','text'],['description','Description','textarea']],
+  directory: [['name','Name','text'],['role','Role / note','text'],['initials','Initials (optional)','text']]
+};
+const TABLE_COLS = {
+  sermons: ['title','speaker','sermon_date'],
+  events: ['title','event_date','time'],
+  leadership: ['name','role'],
+  deacons: ['name','role','phone'],
+  groups: ['title','category','meta'],
+  directory: ['name','role']
+};
+
+let currentEditId = {};
+
+window.showPanel = function(name){
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById('panel-'+name).classList.add('active');
+  document.querySelectorAll('.nav button').forEach(b=>b.classList.remove('active'));
+  document.querySelector('.nav button[data-panel="'+name+'"]').classList.add('active');
+};
+
+window.toggleMode = function(){
+  mode = mode === 'signin' ? 'signup' : 'signin';
+  document.getElementById('loginHeading').textContent = mode === 'signup' ? 'Create staff account' : 'Staff dashboard';
+  document.getElementById('loginSub').textContent = mode === 'signup'
+    ? 'Set up a login for yourself or a staff member.'
+    : 'Sign in to edit content for Smiths Station Baptist Church.';
+  document.getElementById('loginSubmitBtn').textContent = mode === 'signup' ? 'Create account' : 'Sign in';
+  document.getElementById('toggleModeBtn').textContent = mode === 'signup' ? '← Back to sign in' : 'First time here? Create a staff account →';
+  document.getElementById('loginError').style.display = 'none';
+  document.getElementById('loginNotice').style.display = 'none';
+};
+
+window.doLogin = async function(){
+  const email = document.getElementById('loginEmail').value.trim();
+  const pass = document.getElementById('loginPassword').value;
+  const errEl = document.getElementById('loginError');
+  const noticeEl = document.getElementById('loginNotice');
+  errEl.style.display = 'none';
+  noticeEl.style.display = 'none';
+
+  if(mode === 'signup'){
+    const { error } = await supabase.auth.signUp({ email, password: pass });
+    if(error){
+      errEl.textContent = error.message;
+      errEl.style.display = 'block';
+      return;
+    }
+    noticeEl.textContent = 'Account created. If email confirmation is on, check your inbox — otherwise you can sign in now.';
+    noticeEl.style.display = 'block';
+    window.toggleMode();
+  } else {
+    const { error } = await supabase.auth.signInWithPassword({ email, password: pass });
+    if(error){
+      errEl.textContent = error.message;
+      errEl.style.display = 'block';
+    }
+  }
+};
+window.doLogout = function(){ supabase.auth.signOut(); };
+
+supabase.auth.onAuthStateChange((event, session) => {
+  if(session && session.user){
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('dashboard').style.display = 'block';
+    document.getElementById('whoText').textContent = 'Signed in as ' + session.user.email;
+    loadAllTables();
+  } else {
+    document.getElementById('loginScreen').style.display = 'flex';
+    document.getElementById('dashboard').style.display = 'none';
+  }
+});
+
+function esc(s){ const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
+
+async function loadAllTables(){
+  for(const key of Object.keys(SCHEMAS)){ await renderTable(key); }
+  await loadSettingsForm();
+  await renderPrayerRequests();
+}
+
+async function renderTable(key){
+  const { data: items, error } = await supabase.from(key).select('*').order('created_at', { ascending:false });
+  const tbody = document.getElementById('tbl-'+key);
+  const cols = TABLE_COLS[key];
+  if(error || !items || items.length === 0){
+    tbody.innerHTML = '<tr><td colspan="'+(cols.length+1)+'" class="empty-note">Nothing added yet.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = items.map(item => {
+    let cells = cols.map(c => '<td>'+esc(item[c])+'</td>').join('');
+    return '<tr>'+cells+'<td class="actions">'
+      + '<button class="btn small ghost" onclick="editItem(\''+key+'\',\''+item.id+'\')">Edit</button>'
+      + '<button class="btn small danger" onclick="deleteItem(\''+key+'\',\''+item.id+'\')">Delete</button>'
+      + '</td></tr>';
+  }).join('');
+}
+
+window.openForm = function(key, editId, existingData){
+  currentEditId[key] = editId || null;
+  const schema = SCHEMAS[key];
+  const container = document.getElementById('form-'+key);
+  const data = existingData || {};
+  let fieldsHtml = schema.map(([k,label,type]) => {
+    const val = esc(data[k]);
+    if(type === 'textarea'){
+      return '<div class="field"><label>'+label+'</label><textarea id="f_'+key+'_'+k+'">'+val+'</textarea></div>';
+    }
+    return '<div class="field"><label>'+label+'</label><input type="'+type+'" id="f_'+key+'_'+k+'" value="'+val+'"></div>';
+  }).join('');
+  container.innerHTML = '<div class="form-card"><h3>'+(editId ? 'Edit' : 'Add new')+'</h3>'
+    + fieldsHtml
+    + '<button class="btn gold" onclick="saveItem(\''+key+'\')">Save</button> '
+    + '<button class="btn ghost" onclick="closeForm(\''+key+'\')">Cancel</button>'
+    + '<div class="status-msg" id="formStatus_'+key+'"></div></div>';
+};
+window.closeForm = function(key){ document.getElementById('form-'+key).innerHTML = ''; };
+
+window.editItem = async function(key, id){
+  const { data, error } = await supabase.from(key).select('*').eq('id', id).single();
+  if(!error && data) window.openForm(key, id, data);
+};
+
+window.deleteItem = async function(key, id){
+  if(!confirm('Delete this entry?')) return;
+  await supabase.from(key).delete().eq('id', id);
+  renderTable(key);
+};
+
+window.saveItem = async function(key){
+  const schema = SCHEMAS[key];
+  const values = {};
+  schema.forEach(([k]) => { values[k] = document.getElementById('f_'+key+'_'+k).value.trim(); });
+  const statusEl = document.getElementById('formStatus_'+key);
+  try{
+    let error;
+    if(currentEditId[key]){
+      ({ error } = await supabase.from(key).update(values).eq('id', currentEditId[key]));
+    } else {
+      ({ error } = await supabase.from(key).insert(values));
+    }
+    if(error) throw error;
+    statusEl.textContent = 'Saved.';
+    statusEl.className = 'status-msg ok';
+    statusEl.style.display = 'block';
+    renderTable(key);
+    setTimeout(() => window.closeForm(key), 700);
+  }catch(e){
+    statusEl.textContent = 'Could not save — check you are signed in and try again.';
+    statusEl.className = 'status-msg err';
+    statusEl.style.display = 'block';
+  }
+};
+
+async function loadSettingsForm(){
+  const { data: s } = await supabase.from('settings').select('*').eq('id',1).single();
+  if(!s) return;
+  document.getElementById('s_sunday').value = s.sunday_times || '';
+  document.getElementById('s_wed').value = s.wednesday_times || '';
+  document.getElementById('s_address').value = s.address_line || '';
+  document.getElementById('s_phone').value = s.phone || '';
+  document.getElementById('s_isLive').checked = !!s.is_live;
+  document.getElementById('s_liveTitle').value = s.live_title || '';
+  document.getElementById('s_liveSub').value = s.live_sub || '';
+}
+window.saveSettings = async function(){
+  const statusEl = document.getElementById('settingsStatus');
+  try{
+    const { error } = await supabase.from('settings').update({
+      sunday_times: document.getElementById('s_sunday').value.trim(),
+      wednesday_times: document.getElementById('s_wed').value.trim(),
+      address_line: document.getElementById('s_address').value.trim(),
+      phone: document.getElementById('s_phone').value.trim(),
+      is_live: document.getElementById('s_isLive').checked,
+      live_title: document.getElementById('s_liveTitle').value.trim(),
+      live_sub: document.getElementById('s_liveSub').value.trim()
+    }).eq('id',1);
+    if(error) throw error;
+    statusEl.textContent = 'Saved.';
+    statusEl.className = 'status-msg ok';
+    statusEl.style.display = 'block';
+  }catch(e){
+    statusEl.textContent = 'Could not save — check you are signed in and try again.';
+    statusEl.className = 'status-msg err';
+    statusEl.style.display = 'block';
+  }
+};
+
+async function renderPrayerRequests(){
+  const { data: items, error } = await supabase.from('prayer_requests').select('*').order('created_at', { ascending:false });
+  const tbody = document.getElementById('tbl-prayers');
+  if(error || !items || items.length === 0){
+    tbody.innerHTML = '<tr><td colspan="6" class="empty-note">No prayer requests yet.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = items.map(p => {
+    const when = p.created_at ? new Date(p.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : '—';
+    const sharing = p.privacy === 'shareable' ? 'OK to share' : 'Private';
+    return '<tr><td>'+esc(p.name)+'</td><td style="max-width:260px;">'+esc(p.request)+'</td><td>'+sharing+'</td><td>'+when+'</td>'
+      + '<td><input type="checkbox" '+(p.handled ? 'checked' : '')+' onchange="togglePrayerHandled(\''+p.id+'\', this.checked)"></td>'
+      + '<td class="actions"><button class="btn small danger" onclick="deletePrayer(\''+p.id+'\')">Delete</button></td></tr>';
+  }).join('');
+}
+
+window.togglePrayerHandled = async function(id, handled){
+  await supabase.from('prayer_requests').update({ handled }).eq('id', id);
+};
+
+window.deletePrayer = async function(id){
+  if(!confirm('Delete this prayer request?')) return;
+  await supabase.from('prayer_requests').delete().eq('id', id);
+  renderPrayerRequests();
+};
+</script>
+</body>
+</html>
