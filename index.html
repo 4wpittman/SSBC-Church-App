@@ -257,7 +257,7 @@
             <svg class="qi-icon" viewBox="0 0 24 24" fill="none" stroke="#6E7F5C" stroke-width="1.8"><path d="M12 21s-7-4.6-9.5-9A5.5 5.5 0 0112 5.5 5.5 5.5 0 0121.5 12c-2.5 4.4-9.5 9-9.5 9z"/></svg>
             <span class="qi-label">Prayer request</span><span class="qi-sub">We'd love to pray</span>
           </button>
-          <button class="quick-item" onclick="alert('Prototype only — this will open turn-by-turn directions to the church.')">
+          <button class="quick-item" onclick="openDirections()">
             <svg class="qi-icon" viewBox="0 0 24 24" fill="none" stroke="#D9A441" stroke-width="1.8"><path d="M12 22s7-7.4 7-12.5A7 7 0 105 9.5C5 14.6 12 22 12 22z"/><circle cx="12" cy="9.5" r="2.3"/></svg>
             <span class="qi-label">Directions</span><span class="qi-sub">Get here Sunday</span>
           </button>
@@ -623,6 +623,11 @@ function renderGroupCard(g){
     + '<div class="g-meta">'+esc(g.meta||'')+'</div><div class="g-desc">'+esc(g.description||'')+'</div></div>';
 }
 
+let currentAddress = '2210 Lee Rd, Smiths Station, AL 36877';
+window.openDirections = function(){
+  window.open('https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(currentAddress), '_blank');
+};
+
 async function loadSettings(){
   try{
     const { data: s, error } = await supabase.from('settings').select('*').eq('id',1).single();
@@ -633,6 +638,7 @@ async function loadSettings(){
     document.getElementById('visitPhone').textContent = s.phone || '—';
     document.getElementById('giveTextPhone').textContent = s.phone || '—';
     document.getElementById('giveMailAddress').textContent = s.address_line || '—';
+    if(s.address_line) currentAddress = s.address_line;
     const liveBanner = document.getElementById('liveBanner');
     const liveContainer = document.getElementById('liveVideoContainer');
     const liveNote = document.getElementById('liveVideoNote');
