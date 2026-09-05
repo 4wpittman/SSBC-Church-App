@@ -61,6 +61,10 @@
   .status-msg.ok{color:var(--sage);}
   .status-msg.err{color:var(--danger);}
   .empty-note{font-size:13px; color:var(--ink-soft); padding:14px 0;}
+  .photo-admin-grid{display:grid; grid-template-columns:repeat(auto-fill, minmax(120px,1fr)); gap:10px;}
+  .photo-admin-item{position:relative; border-radius:10px; overflow:hidden; aspect-ratio:1; border:1px solid #E4DFD3;}
+  .photo-admin-item img{width:100%; height:100%; object-fit:cover; display:block;}
+  .photo-admin-item button{position:absolute; top:6px; right:6px; background:rgba(179,67,45,.9); color:#fff; border:none; border-radius:6px; padding:4px 8px; font-size:11px; cursor:pointer; font-family:inherit;}
 </style>
 </head>
 <body>
@@ -96,6 +100,9 @@
       <button data-panel="groups" onclick="showPanel('groups')">Connect groups</button>
       <button data-panel="directory" onclick="showPanel('directory')">Directory</button>
       <button data-panel="prayers" onclick="showPanel('prayers')">Prayer requests</button>
+      <button data-panel="verses" onclick="showPanel('verses')">Verse of the day</button>
+      <button data-panel="announcements" onclick="showPanel('announcements')">Announcements</button>
+      <button data-panel="photos" onclick="showPanel('photos')">Photos</button>
     </div>
     <div class="content">
 
@@ -166,6 +173,31 @@
         <table><thead><tr><th>Name</th><th>Request</th><th>Sharing</th><th>Received</th><th>Prayed for?</th><th></th></tr></thead><tbody id="tbl-prayers"></tbody></table>
       </div>
 
+      <div class="panel" id="panel-verses">
+        <div class="panel-head"><h2>Verse of the day</h2><button class="btn small gold" onclick="openForm('verses')">Add reference</button></div>
+        <div class="card-desc" style="color:var(--ink-soft); margin-bottom:14px;">Add Bible references (like "John 3:16" or "Psalm 23:1-3") — the app rotates through this list one per day and fetches the actual verse text live, so there's nothing else to maintain.</div>
+        <table><thead><tr><th>Reference</th><th></th></tr></thead><tbody id="tbl-verses"></tbody></table>
+        <div id="form-verses"></div>
+      </div>
+
+      <div class="panel" id="panel-announcements">
+        <div class="panel-head"><h2>Announcements</h2><button class="btn small gold" onclick="openForm('announcements')">Add announcement</button></div>
+        <table><thead><tr><th>Title</th><th>Posted</th><th></th></tr></thead><tbody id="tbl-announcements"></tbody></table>
+        <div id="form-announcements"></div>
+      </div>
+
+      <div class="panel" id="panel-photos">
+        <div class="panel-head"><h2>Photos</h2></div>
+        <div class="form-card">
+          <h3>Upload a photo</h3>
+          <div class="field"><label>Image file</label><input type="file" id="photoFileInput" accept="image/*"></div>
+          <div class="field"><label>Caption (optional)</label><input id="photoCaptionInput" placeholder="Youth group bonfire, Sept 2026"></div>
+          <button class="btn gold" onclick="uploadPhoto()">Upload</button>
+          <div class="status-msg" id="photoUploadStatus"></div>
+        </div>
+        <div class="photo-admin-grid" id="photosAdminGrid" style="margin-top:16px;"></div>
+      </div>
+
     </div>
   </div>
 </div>
@@ -184,7 +216,9 @@ const SCHEMAS = {
   leadership: [['name','Name','text'],['role','Role','text'],['bio','Bio','textarea'],['initials','Initials (optional)','text']],
   deacons: [['name','Name','text'],['role','Role','text'],['phone','Phone','text'],['initials','Initials (optional)','text']],
   groups: [['title','Title','text'],['category',"Category (men/women/youth/young/senior)",'text'],['meta','Meets (e.g. Tuesdays, 6:00am · Fellowship Hall)','text'],['description','Description','textarea']],
-  directory: [['name','Name','text'],['role','Role / note','text'],['initials','Initials (optional)','text']]
+  directory: [['name','Name','text'],['role','Role / note','text'],['initials','Initials (optional)','text']],
+  verses: [['reference','Reference (e.g. John 3:16)','text']],
+  announcements: [['title','Title','text'],['body','Details','textarea']]
 };
 const TABLE_COLS = {
   sermons: ['title','speaker','sermon_date'],
@@ -192,7 +226,9 @@ const TABLE_COLS = {
   leadership: ['name','role'],
   deacons: ['name','role','phone'],
   groups: ['title','category','meta'],
-  directory: ['name','role']
+  directory: ['name','role'],
+  verses: ['reference'],
+  announcements: ['title']
 };
 
 let currentEditId = {};
@@ -262,6 +298,7 @@ async function loadAllTables(){
   for(const key of Object.keys(SCHEMAS)){ await renderTable(key); }
   await loadSettingsForm();
   await renderPrayerRequests();
+  await renderPhotosAdmin();
 }
 
 async function renderTable(key){
@@ -397,6 +434,58 @@ window.deletePrayer = async function(id){
   if(!confirm('Delete this prayer request?')) return;
   await supabase.from('prayer_requests').delete().eq('id', id);
   renderPrayerRequests();
+};
+
+/* --- Photos --- */
+window.uploadPhoto = async function(){
+  const fileInput = document.getElementById('photoFileInput');
+  const caption = document.getElementById('photoCaptionInput').value.trim();
+  const statusEl = document.getElementById('photoUploadStatus');
+  const file = fileInput.files[0];
+  if(!file){
+    statusEl.textContent = 'Choose an image file first.';
+    statusEl.className = 'status-msg err';
+    statusEl.style.display = 'block';
+    return;
+  }
+  statusEl.textContent = 'Uploading...';
+  statusEl.className = 'status-msg ok';
+  statusEl.style.display = 'block';
+  try{
+    const path = Date.now()+'_'+file.name.replace(/[^a-zA-Z0-9.\-_]/g,'_');
+    const { error: upErr } = await supabase.storage.from('photos').upload(path, file);
+    if(upErr) throw upErr;
+    const { data: pub } = supabase.storage.from('photos').getPublicUrl(path);
+    const { error: insErr } = await supabase.from('photos').insert({ url: pub.publicUrl, caption });
+    if(insErr) throw insErr;
+    statusEl.textContent = 'Uploaded.';
+    fileInput.value = '';
+    document.getElementById('photoCaptionInput').value = '';
+    renderPhotosAdmin();
+  }catch(e){
+    statusEl.textContent = 'Upload failed — check you are signed in and try again.';
+    statusEl.className = 'status-msg err';
+    statusEl.style.display = 'block';
+  }
+};
+
+async function renderPhotosAdmin(){
+  const { data: items, error } = await supabase.from('photos').select('*').order('created_at', { ascending:false });
+  const grid = document.getElementById('photosAdminGrid');
+  if(error || !items || items.length === 0){
+    grid.innerHTML = '<div class="empty-note">No photos uploaded yet.</div>';
+    return;
+  }
+  grid.innerHTML = items.map(p =>
+    '<div class="photo-admin-item"><img src="'+esc(p.url)+'" alt="'+esc(p.caption||'')+'">'
+    + '<button onclick="deletePhoto(\''+p.id+'\')">Delete</button></div>'
+  ).join('');
+}
+
+window.deletePhoto = async function(id){
+  if(!confirm('Delete this photo?')) return;
+  await supabase.from('photos').delete().eq('id', id);
+  renderPhotosAdmin();
 };
 </script>
 </body>

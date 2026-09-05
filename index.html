@@ -143,6 +143,15 @@
   .bio-text{font-size:13px; color:var(--ink-soft); line-height:1.5;}
 
   .chip-row{display:flex; gap:8px; overflow-x:auto; padding-bottom:2px; margin-bottom:16px;}
+
+  .photo-grid{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+  .photo-item{border-radius:14px 14px 6px 6px; overflow:hidden; background:var(--paper-dim); aspect-ratio:1; cursor:pointer; border:1px solid #E4DFD3;}
+  .photo-item img{width:100%; height:100%; object-fit:cover; display:block;}
+  .lightbox{position:fixed; inset:0; background:rgba(19,30,51,.92); z-index:50; display:none; align-items:center; justify-content:center; flex-direction:column; padding:20px;}
+  .lightbox.show{display:flex;}
+  .lightbox img{max-width:100%; max-height:75vh; border-radius:10px;}
+  .lightbox .lb-caption{color:#fff; font-size:13px; margin-top:12px; text-align:center;}
+  .lightbox .lb-close{position:absolute; top:20px; right:20px; background:rgba(255,255,255,.15); border:none; color:#fff; width:36px; height:36px; border-radius:50%; font-size:18px; cursor:pointer;}
   .chip{flex-shrink:0; font-size:12.5px; font-weight:600; padding:8px 14px; border-radius:20px; background:#fff; border:1px solid #DCD5C4; color:var(--ink-soft); cursor:pointer; white-space:nowrap;}
   .chip.active{background:var(--navy); color:#fff; border-color:var(--navy);}
 
@@ -222,6 +231,20 @@
       </div>
 
       <div class="section">
+        <div class="section-head"><h2>Verse of the day</h2><button class="link" onclick="openScreen('bible')">Read more →</button></div>
+        <div class="arch-card" id="verseOfDayCard">
+          <div class="card-desc">Loading...</div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-head"><h2>Announcements</h2><button class="link" onclick="openScreen('announcements')">See all</button></div>
+        <div id="homeAnnouncement">
+          <div class="card-desc">Loading...</div>
+        </div>
+      </div>
+
+      <div class="section">
         <div class="section-head"><h2>This week</h2><button class="link" onclick="showTab('events')">See all</button></div>
         <div id="homeNextEvent">
           <div class="card-desc">Loading...</div>
@@ -261,6 +284,18 @@
           <button class="quick-item" onclick="openScreen('deacons')">
             <svg class="qi-icon" viewBox="0 0 24 24" fill="none" stroke="#8B4A3B" stroke-width="1.8"><path d="M12 2l7 3v6c0 5-3.4 8.4-7 11-3.6-2.6-7-6-7-11V5z"/></svg>
             <span class="qi-label">Deacon list</span><span class="qi-sub">Care &amp; contacts</span>
+          </button>
+          <button class="quick-item" onclick="openScreen('bible')">
+            <svg class="qi-icon" viewBox="0 0 24 24" fill="none" stroke="#6E7F5C" stroke-width="1.8"><path d="M4 19.5V5.5A2.5 2.5 0 016.5 3H20v15.5H6.5A2.5 2.5 0 004 21h16"/></svg>
+            <span class="qi-label">Read the Bible</span><span class="qi-sub">Look up any verse</span>
+          </button>
+          <button class="quick-item" onclick="openScreen('announcements')">
+            <svg class="qi-icon" viewBox="0 0 24 24" fill="none" stroke="#D9A441" stroke-width="1.8"><path d="M3 11l18-5v14L3 15v-4z"/><path d="M7 15.5V19a2 2 0 002 2h1"/></svg>
+            <span class="qi-label">Announcements</span><span class="qi-sub">What's happening</span>
+          </button>
+          <button class="quick-item" onclick="openScreen('photos')">
+            <svg class="qi-icon" viewBox="0 0 24 24" fill="none" stroke="#1C2B4A" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5.5-5.5L3 20"/></svg>
+            <span class="qi-label">Photos</span><span class="qi-sub">Church life</span>
           </button>
         </div>
       </div>
@@ -374,6 +409,37 @@
       </div>
     </div>
 
+    <!-- BIBLE -->
+    <div class="screen" id="screen-bible">
+      <div class="mini-header"><button class="back-btn" onclick="showTab('home')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg></button><h2>Read the Bible</h2></div>
+      <div class="section" style="padding-top:8px;">
+        <div class="search-box">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+          <input type="text" id="bibleSearchInput" placeholder="e.g. John 3:16, Psalm 23, Romans 8" onkeydown="if(event.key==='Enter') searchBible()">
+        </div>
+        <button class="submit-btn" style="margin-bottom:16px;" onclick="searchBible()">Look up</button>
+        <div id="bibleResult"></div>
+        <div class="section-head" style="margin-top:8px;"><h2 style="font-size:15px;">Today's verse</h2></div>
+        <div class="arch-card" id="bibleVerseOfDay"><div class="card-desc">Loading...</div></div>
+      </div>
+    </div>
+
+    <!-- ANNOUNCEMENTS -->
+    <div class="screen" id="screen-announcements">
+      <div class="mini-header"><button class="back-btn" onclick="showTab('home')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg></button><h2>Announcements</h2></div>
+      <div class="section" style="padding-top:8px;">
+        <div id="announcementsList"><div class="card-desc">Loading...</div></div>
+      </div>
+    </div>
+
+    <!-- PHOTOS -->
+    <div class="screen" id="screen-photos">
+      <div class="mini-header"><button class="back-btn" onclick="showTab('home')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg></button><h2>Photos</h2></div>
+      <div class="section" style="padding-top:8px;">
+        <div class="photo-grid" id="photosGrid"><div class="card-desc">Loading...</div></div>
+      </div>
+    </div>
+
     <!-- LEADERSHIP / STAFF -->
     <div class="screen" id="screen-leadership">
       <div class="mini-header"><button class="back-btn" onclick="showTab('home')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg></button><h2>Our staff</h2></div>
@@ -418,6 +484,12 @@
       </div>
     </div>
 
+  </div>
+
+  <div class="lightbox" id="lightbox" onclick="closeLightbox(event)">
+    <button class="lb-close" onclick="closeLightbox(event)">✕</button>
+    <img id="lightboxImg" src="" alt="">
+    <div class="lb-caption" id="lightboxCaption"></div>
   </div>
 
   <div class="tabbar">
@@ -664,6 +736,103 @@ async function loadGroups(){
   }catch(e){ console.error('groups load failed', e); }
 }
 
+/* --- Bible: verse of the day + search, powered by bible-api.com (free, no key, public domain WEB translation) --- */
+function dayOfYear(){
+  const now = new Date();
+  const start = new Date(now.getFullYear(), 0, 0);
+  const diff = now - start;
+  return Math.floor(diff / 86400000);
+}
+function renderVerseCard(data, reference){
+  const text = (data && data.text) ? data.text.trim() : '';
+  if(!text) return '<div class="card-desc">Couldn\'t load that verse right now — check the reference and try again.</div>';
+  return '<div class="card-title" style="font-size:15px; line-height:1.5; font-style:italic;">"'+esc(text)+'"</div>'
+    + '<div class="card-meta" style="margin-top:8px; margin-bottom:0;">'+esc(data.reference || reference)+' · '+esc(data.translation_name || 'WEB')+'</div>';
+}
+async function fetchVerse(reference){
+  const res = await fetch('https://bible-api.com/'+encodeURIComponent(reference));
+  if(!res.ok) throw new Error('lookup failed');
+  return res.json();
+}
+async function loadVerseOfDay(){
+  try{
+    const { data: items, error } = await supabase.from('verses').select('*');
+    if(error || !items || items.length === 0){
+      document.getElementById('verseOfDayCard').innerHTML = '<div class="card-desc">No verses set up yet.</div>';
+      return;
+    }
+    const pick = items[dayOfYear() % items.length];
+    const data = await fetchVerse(pick.reference);
+    const html = renderVerseCard(data, pick.reference);
+    document.getElementById('verseOfDayCard').innerHTML = html;
+    const bibleTarget = document.getElementById('bibleVerseOfDay');
+    if(bibleTarget) bibleTarget.innerHTML = html;
+  }catch(e){
+    console.error('verse of day failed', e);
+    document.getElementById('verseOfDayCard').innerHTML = '<div class="card-desc">Couldn\'t load today\'s verse — check your connection.</div>';
+  }
+}
+window.searchBible = async function(){
+  const ref = document.getElementById('bibleSearchInput').value.trim();
+  const resultEl = document.getElementById('bibleResult');
+  if(!ref) return;
+  resultEl.innerHTML = '<div class="card-desc">Looking up '+esc(ref)+'...</div>';
+  try{
+    const data = await fetchVerse(ref);
+    resultEl.innerHTML = '<div class="arch-card">'+renderVerseCard(data, ref)+'</div>';
+  }catch(e){
+    resultEl.innerHTML = '<div class="card-desc">Couldn\'t find "'+esc(ref)+'" — try a format like "John 3:16" or "Psalm 23".</div>';
+  }
+};
+
+/* --- Announcements --- */
+function renderAnnouncementCard(a){
+  const when = a.created_at ? new Date(a.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric'}) : '';
+  return '<div class="arch-card"><div class="card-title">'+esc(a.title)+'</div>'
+    + '<div class="card-meta">'+esc(when)+'</div>'
+    + '<div class="card-desc" style="margin-bottom:0;">'+esc(a.body||'')+'</div></div>';
+}
+async function loadAnnouncements(){
+  try{
+    const { data: items, error } = await supabase.from('announcements').select('*').order('created_at', { ascending:false });
+    if(error) throw error;
+    const listEl = document.getElementById('announcementsList');
+    const homeEl = document.getElementById('homeAnnouncement');
+    if(!items || items.length === 0){
+      listEl.innerHTML = '<div class="card-desc">No announcements right now.</div>';
+      homeEl.innerHTML = '<div class="card-desc">No announcements right now.</div>';
+      return;
+    }
+    listEl.innerHTML = items.map(renderAnnouncementCard).join('');
+    homeEl.innerHTML = renderAnnouncementCard(items[0]);
+  }catch(e){ console.error('announcements load failed', e); }
+}
+
+/* --- Photos --- */
+async function loadPhotos(){
+  try{
+    const { data: items, error } = await supabase.from('photos').select('*').order('created_at', { ascending:false });
+    if(error) throw error;
+    const grid = document.getElementById('photosGrid');
+    if(!items || items.length === 0){
+      grid.innerHTML = '<div class="card-desc">No photos posted yet.</div>';
+      return;
+    }
+    grid.innerHTML = items.map(p =>
+      '<div class="photo-item" onclick="openLightbox('+"'"+p.url.replace(/'/g,"\\'")+"'"+','+"'"+(p.caption||'').replace(/'/g,"\\'")+"'"+')"><img src="'+esc(p.url)+'" alt="'+esc(p.caption||'')+'" loading="lazy"></div>'
+    ).join('');
+  }catch(e){ console.error('photos load failed', e); }
+}
+window.openLightbox = function(url, caption){
+  document.getElementById('lightboxImg').src = url;
+  document.getElementById('lightboxCaption').textContent = caption || '';
+  document.getElementById('lightbox').classList.add('show');
+};
+window.closeLightbox = function(e){
+  if(e) e.stopPropagation();
+  document.getElementById('lightbox').classList.remove('show');
+};
+
 loadSettings();
 loadSermons();
 loadEvents();
@@ -671,6 +840,9 @@ loadLeadership();
 loadDeacons();
 loadDirectory();
 loadGroups();
+loadVerseOfDay();
+loadAnnouncements();
+loadPhotos();
 
 /* --- PWA install + offline support ---
    These only activate for real once this file is hosted (HTTPS), alongside
