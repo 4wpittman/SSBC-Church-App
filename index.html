@@ -216,15 +216,6 @@
         </div>
       </div>
 
-      <div class="live-banner" id="liveBanner" onclick="openScreen('live')" style="display:none;">
-        <div class="live-dot"></div>
-        <div class="live-text">
-          <div class="lt-title" id="liveTitleText">Live now · Sunday worship</div>
-          <div class="lt-sub" id="liveSubText">Tap to watch the service</div>
-        </div>
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#A79F8E" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
-      </div>
-
       <div class="install-banner" id="installBanner">
         <div class="ib-text">Add this app to your home screen for one-tap access.</div>
         <button onclick="installApp()">Install</button>
@@ -244,17 +235,14 @@
         </div>
       </div>
 
-      <div class="section">
-        <div class="section-head"><h2>This week</h2><button class="link" onclick="showTab('events')">See all</button></div>
-        <div id="homeNextEvent">
-          <div class="card-desc">Loading...</div>
-        </div>
-      </div>
-
-      <div class="section">
-        <div class="section-head"><h2>Latest message</h2><button class="link" onclick="showTab('sermons')">See all</button></div>
-        <div id="homeLatestSermon">
-          <div class="card-desc">Loading...</div>
+      <div class="section" style="padding-top:4px;">
+        <div class="live-banner" id="liveBanner" onclick="openScreen('live')" style="display:none; margin:0;">
+          <div class="live-dot"></div>
+          <div class="live-text">
+            <div class="lt-title" id="liveTitleText">Live now · Sunday worship</div>
+            <div class="lt-sub" id="liveSubText">Tap to watch the service</div>
+          </div>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#A79F8E" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
         </div>
       </div>
 
@@ -304,7 +292,13 @@
     <!-- SERMONS -->
     <div class="screen" id="screen-sermons">
       <div class="section" style="padding-top:20px;">
-        <div class="section-head"><h2>Sermons</h2></div>
+        <div class="section-head"><h2>Latest message</h2></div>
+        <div id="sermonsLatestFeature">
+          <div class="card-desc">Loading...</div>
+        </div>
+      </div>
+      <div class="section" style="padding-top:4px;">
+        <div class="section-head"><h2>All sermons</h2></div>
         <div id="sermonsList">
           <div class="card-desc">Loading...</div>
         </div>
@@ -314,6 +308,12 @@
     <!-- EVENTS -->
     <div class="screen" id="screen-events">
       <div class="section" style="padding-top:20px;">
+        <div class="section-head"><h2>This week</h2></div>
+        <div id="eventsNextFeature">
+          <div class="card-desc">Loading...</div>
+        </div>
+      </div>
+      <div class="section" style="padding-top:4px;">
         <div class="section-head"><h2>Upcoming events</h2></div>
         <div id="eventsList">
           <div class="card-desc">Loading...</div>
@@ -664,14 +664,14 @@ async function loadSermons(){
     const { data: items, error } = await supabase.from('sermons').select('*').order('sermon_date', { ascending:false });
     if(error) throw error;
     const listEl = document.getElementById('sermonsList');
-    const homeEl = document.getElementById('homeLatestSermon');
+    const featureEl = document.getElementById('sermonsLatestFeature');
     if(!items || items.length === 0){
       listEl.innerHTML = '<div class="card-desc">No sermons posted yet.</div>';
-      homeEl.innerHTML = '<div class="card-desc">No sermons posted yet.</div>';
+      featureEl.innerHTML = '<div class="card-desc">No sermons posted yet.</div>';
       return;
     }
     listEl.innerHTML = items.map(renderSermonCard).join('');
-    homeEl.innerHTML = renderSermonCard(items[0]);
+    featureEl.innerHTML = renderSermonCard(items[0]);
   }catch(e){ console.error('sermons load failed', e); }
 }
 
@@ -680,16 +680,16 @@ async function loadEvents(){
     const { data: items, error } = await supabase.from('events').select('*').order('event_date', { ascending:true });
     if(error) throw error;
     const listEl = document.getElementById('eventsList');
-    const homeEl = document.getElementById('homeNextEvent');
+    const featureEl = document.getElementById('eventsNextFeature');
     if(!items || items.length === 0){
       listEl.innerHTML = '<div class="card-desc">No upcoming events posted yet.</div>';
-      homeEl.innerHTML = '<div class="card-desc">No upcoming events posted yet.</div>';
+      featureEl.innerHTML = '<div class="card-desc">No upcoming events posted yet.</div>';
       return;
     }
     listEl.innerHTML = items.map(renderEventRow).join('');
     const today = todayISO();
     const next = items.find(e => (e.event_date||'') >= today) || items[0];
-    homeEl.innerHTML = renderEventRow(next);
+    featureEl.innerHTML = renderEventRow(next);
   }catch(e){ console.error('events load failed', e); }
 }
 
