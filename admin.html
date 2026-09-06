@@ -330,8 +330,14 @@ window.openForm = function(key, editId, existingData){
     }
     return '<div class="field"><label>'+label+'</label><input type="'+type+'" id="f_'+key+'_'+k+'" value="'+val+'"></div>';
   }).join('');
+  let extraHtml = '';
+  if(key === 'leadership'){
+    extraHtml = '<div class="field"><label><input type="checkbox" id="f_leadership_alsoDirectory" style="width:auto; margin-right:6px;">Also list this person in the Church Directory</label>'
+      + '<div style="font-size:11.5px; color:var(--ink-soft); margin-top:4px;">Adds a new Directory entry each time this is checked and saved — leave it unchecked when editing someone already listed there, to avoid duplicates.</div></div>';
+  }
   container.innerHTML = '<div class="form-card"><h3>'+(editId ? 'Edit' : 'Add new')+'</h3>'
     + fieldsHtml
+    + extraHtml
     + '<button class="btn gold" onclick="saveItem(\''+key+'\')">Save</button> '
     + '<button class="btn ghost" onclick="closeForm(\''+key+'\')">Cancel</button>'
     + '<div class="status-msg" id="formStatus_'+key+'"></div></div>';
@@ -362,10 +368,24 @@ window.saveItem = async function(key){
       ({ error } = await supabase.from(key).insert(values));
     }
     if(error) throw error;
+
+    if(key === 'leadership'){
+      const alsoDirectory = document.getElementById('f_leadership_alsoDirectory');
+      if(alsoDirectory && alsoDirectory.checked){
+        const { error: dirErr } = await supabase.from('directory').insert({
+          name: values.name,
+          role: values.role,
+          initials: values.initials
+        });
+        if(dirErr) console.error('directory add failed', dirErr);
+      }
+    }
+
     statusEl.textContent = 'Saved.';
     statusEl.className = 'status-msg ok';
     statusEl.style.display = 'block';
     renderTable(key);
+    if(key === 'leadership') renderTable('directory');
     setTimeout(() => window.closeForm(key), 700);
   }catch(e){
     statusEl.textContent = 'Could not save — check you are signed in and try again.';
