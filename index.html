@@ -654,9 +654,21 @@ function renderPersonRow(p, withContact){
     + '</div>';
 }
 function renderGroupCard(g){
-  return '<div class="group-card" data-cat="'+esc(g.category||'')+'"><div class="g-title">'+esc(g.title)+'</div>'
-    + '<div class="g-meta">'+esc(g.meta||'')+'</div><div class="g-desc">'+esc(g.description||'')+'</div></div>';
+  return '<div class="group-card" data-cat="'+esc(g.category||'')+'" onclick="toggleGroupDesc(\''+g.id+'\')" style="cursor:pointer;">'
+    + '<div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">'
+    + '<div><div class="g-title">'+esc(g.title)+'</div><div class="g-meta">'+esc(g.meta||'')+'</div></div>'
+    + '<svg id="group-chevron-'+g.id+'" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#A79F8E" stroke-width="2" style="flex-shrink:0; transition:transform .2s;"><path d="M9 6l6 6-6 6"/></svg>'
+    + '</div>'
+    + '<div class="g-desc" id="group-desc-'+g.id+'" style="display:none; margin-top:8px;">'+esc(g.description||'No description yet.')+'</div>'
+    + '</div>';
 }
+window.toggleGroupDesc = function(id){
+  const descEl = document.getElementById('group-desc-'+id);
+  const chevron = document.getElementById('group-chevron-'+id);
+  const isOpen = descEl.style.display === 'block';
+  descEl.style.display = isOpen ? 'none' : 'block';
+  chevron.style.transform = isOpen ? 'rotate(0deg)' : 'rotate(90deg)';
+};
 
 let currentAddress = '2210 Lee Rd, Smiths Station, AL 36877';
 window.openDirections = function(){
