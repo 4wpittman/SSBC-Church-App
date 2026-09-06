@@ -611,7 +611,8 @@ function renderSermonCard(s){
 }
 function renderBioCard(p){
   return '<div class="bio-card"><div class="bio-avatar">'+esc(p.initials||initials(p.name))+'</div>'
-    + '<div><div class="bio-name">'+esc(p.name)+'</div><div class="bio-role">'+esc(p.role||'')+'</div><div class="bio-text">'+esc(p.bio||'')+'</div></div></div>';
+    + '<div><div class="bio-name">'+esc(p.name)+'</div><div class="bio-role">'+esc(p.role||'')+'</div><div class="bio-text">'+esc(p.bio||'')+'</div>'
+    + (p.phone ? '<div class="person-contact" style="margin-top:4px;">'+esc(p.phone)+'</div>' : '') + '</div></div>';
 }
 function renderPersonRow(p, withContact){
   return '<div class="person-row"><div class="avatar">'+esc(p.initials||initials(p.name))+'</div>'
@@ -729,7 +730,7 @@ async function loadDirectory(){
     const { data: items, error } = await supabase.from('directory').select('*').order('name', { ascending:true });
     if(error) throw error;
     const listEl = document.getElementById('directoryList');
-    listEl.innerHTML = (items && items.length) ? items.map(p=>renderPersonRow(p,false)).join('') : '<div class="card-desc">No directory entries yet.</div>';
+    listEl.innerHTML = (items && items.length) ? items.map(p=>renderPersonRow(p,true)).join('') : '<div class="card-desc">No directory entries yet.</div>';
   }catch(e){ console.error('directory load failed', e); }
 }
 
