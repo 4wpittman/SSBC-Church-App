@@ -65,6 +65,9 @@
   .photo-admin-item{position:relative; border-radius:10px; overflow:hidden; aspect-ratio:1; border:1px solid #E4DFD3;}
   .photo-admin-item img{width:100%; height:100%; object-fit:cover; display:block;}
   .photo-admin-item button{position:absolute; top:6px; right:6px; background:rgba(179,67,45,.9); color:#fff; border:none; border-radius:6px; padding:4px 8px; font-size:11px; cursor:pointer; font-family:inherit;}
+  .slide-admin-row{display:flex; gap:12px; align-items:center; background:#fff; border:1px solid #E4DFD3; border-radius:12px; padding:10px 12px; margin-bottom:8px;}
+  .slide-admin-row .slide-thumb{width:64px; height:36px; object-fit:cover; border-radius:6px; flex-shrink:0; background:var(--paper-dim);}
+  .slide-admin-row select{flex:1; min-width:0;}
   .slides-dropzone{border:2px dashed #DCD5C4; border-radius:12px; padding:28px 16px; text-align:center; cursor:pointer; color:var(--ink-soft); font-size:13.5px; font-weight:600; transition:background .15s, border-color .15s;}
   .slides-dropzone:hover, .slides-dropzone.dragover{background:var(--paper-dim); border-color:var(--gold);}
 </style>
@@ -222,14 +225,14 @@
         <div class="panel-head"><h2>Announcements</h2></div>
 
         <div class="form-card">
-          <h3>This week's announcement slides</h3>
-          <div class="card-desc" style="color:var(--ink-soft); margin-bottom:12px;">Drop a PDF or image (JPG, PNG) here, or click to choose one. Uploading a new file automatically replaces the old one — there's only ever one current version.</div>
+          <h3>Slideshow slides</h3>
+          <div class="card-desc" style="color:var(--ink-soft); margin-bottom:12px;">Drop one or more PDFs/images here — they'll play in the app as a slideshow, changing every 5 seconds. Optionally link any slide to an event, so tapping it opens that event's page.</div>
           <div id="slidesDropZone" class="slides-dropzone" onclick="document.getElementById('slidesFileInput').click()">
-            <div id="slidesDropText">Drag a PDF or image here, or click to browse</div>
+            <div id="slidesDropText">Drag PDFs or images here, or click to browse (you can select multiple)</div>
           </div>
-          <input type="file" id="slidesFileInput" accept="application/pdf,image/*" style="display:none;" onchange="handleSlidesFile(this.files[0])">
-          <div id="currentSlidesInfo" class="card-desc" style="margin-top:10px;"></div>
+          <input type="file" id="slidesFileInput" accept="application/pdf,image/*" multiple style="display:none;" onchange="handleSlidesFiles(this.files)">
           <div class="status-msg" id="slidesUploadStatus"></div>
+          <div id="slidesAdminGrid" style="margin-top:16px;"></div>
         </div>
 
         <div class="panel-head" style="margin-top:24px;"><h2 style="font-size:16px;">Text announcements</h2><button class="btn small gold" onclick="openForm('announcements')">Add announcement</button></div>
@@ -352,7 +355,7 @@ async function loadAllTables(){
   await loadSettingsForm();
   await renderPrayerRequests();
   await renderPhotosAdmin();
-  await loadCurrentSlidesInfo();
+  await renderSlidesAdmin();
   await loadSignupsEventOptions();
 }
 
@@ -484,7 +487,7 @@ window.saveItem = async function(key){
     statusEl.style.display = 'block';
     renderTable(key);
     if(key === 'leadership' || key === 'deacons') renderTable('directory');
-    if(key === 'events') loadSignupsEventOptions();
+    if(key === 'events'){ loadSignupsEventOptions(); renderSlidesAdmin(); }
     setTimeout(() => window.closeForm(key), 700);
   }catch(e){
     statusEl.textContent = 'Could not save — check you are signed in and try again.';
@@ -617,11 +620,8 @@ window.deletePhoto = async function(id){
   renderPhotosAdmin();
 };
 
-/* --- Announcement slides: single-slot upload, always overwrites the same file.
-   Path includes the extension so both PDFs and images work; any old file with
-   a different extension is removed first so there's never more than one. --- */
-const SLIDES_POSSIBLE_PATHS = ['current.pdf','current.jpg','current.jpeg','current.png','current.gif','current.webp'];
-
+/* --- Announcement slides: a gallery of slides that rotate in the app.
+   Each slide can optionally link to an event. --- */
 function extensionForFile(file){
   if(file.type === 'application/pdf') return 'pdf';
   if(file.type.startsWith('image/')){
@@ -632,54 +632,66 @@ function extensionForFile(file){
   return null;
 }
 
-async function loadCurrentSlidesInfo(){
-  const { data: s } = await supabase.from('settings').select('announcement_slides_url, announcement_slides_updated_at').eq('id',1).single();
-  const infoEl = document.getElementById('currentSlidesInfo');
-  if(s && s.announcement_slides_url){
-    const when = s.announcement_slides_updated_at ? new Date(s.announcement_slides_updated_at).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}) : '';
-    infoEl.innerHTML = 'Current file uploaded '+esc(when)+' — <a href="'+esc(s.announcement_slides_url)+'" target="_blank" style="color:var(--brick); font-weight:600;">view it</a>';
-  } else {
-    infoEl.textContent = 'No slides uploaded yet.';
-  }
-}
-
-window.handleSlidesFile = async function(file){
-  if(!file) return;
+window.handleSlidesFiles = async function(fileList){
+  const files = Array.from(fileList || []);
+  if(files.length === 0) return;
   const statusEl = document.getElementById('slidesUploadStatus');
-  const ext = extensionForFile(file);
-  if(!ext){
-    statusEl.textContent = 'Please choose a PDF or image file (JPG, PNG, GIF, WEBP).';
-    statusEl.className = 'status-msg err';
-    statusEl.style.display = 'block';
-    return;
-  }
-  statusEl.textContent = 'Uploading...';
   statusEl.className = 'status-msg ok';
   statusEl.style.display = 'block';
-  try{
-    const path = 'current.'+ext;
-    // Clear out any previous file at a different extension so only one ever exists
-    const otherPaths = SLIDES_POSSIBLE_PATHS.filter(p => p !== path);
-    await supabase.storage.from('announcement-slides').remove(otherPaths);
 
-    const { error: upErr } = await supabase.storage.from('announcement-slides').upload(path, file, { upsert: true });
-    if(upErr) throw upErr;
-    const { data: pub } = supabase.storage.from('announcement-slides').getPublicUrl(path);
-    const cacheBustedUrl = pub.publicUrl + '?t=' + Date.now();
-    const { error: dbErr } = await supabase.from('settings').update({
-      announcement_slides_url: cacheBustedUrl,
-      announcement_slides_type: ext === 'pdf' ? 'pdf' : 'image',
-      announcement_slides_updated_at: new Date().toISOString()
-    }).eq('id',1);
-    if(dbErr) throw dbErr;
-    statusEl.textContent = 'Uploaded — this replaces the previous file automatically.';
-    document.getElementById('slidesFileInput').value = '';
-    loadCurrentSlidesInfo();
-  }catch(e){
-    statusEl.textContent = 'Upload failed — check you are signed in and try again.';
-    statusEl.className = 'status-msg err';
-    statusEl.style.display = 'block';
+  let uploaded = 0, failed = 0;
+  for(const file of files){
+    const ext = extensionForFile(file);
+    if(!ext){ failed++; continue; }
+    statusEl.textContent = 'Uploading '+(uploaded+failed+1)+' of '+files.length+'...';
+    try{
+      const path = Date.now()+'_'+Math.random().toString(36).slice(2)+'.'+ext;
+      const { error: upErr } = await supabase.storage.from('announcement-slides').upload(path, file);
+      if(upErr) throw upErr;
+      const { data: pub } = supabase.storage.from('announcement-slides').getPublicUrl(path);
+      const { error: dbErr } = await supabase.from('announcement_slides').insert({
+        url: pub.publicUrl,
+        type: ext === 'pdf' ? 'pdf' : 'image'
+      });
+      if(dbErr) throw dbErr;
+      uploaded++;
+    }catch(e){
+      failed++;
+    }
   }
+  statusEl.textContent = uploaded+' slide'+(uploaded===1?'':'s')+' uploaded'+(failed?', '+failed+' failed':'')+'.';
+  document.getElementById('slidesFileInput').value = '';
+  renderSlidesAdmin();
+};
+
+async function renderSlidesAdmin(){
+  const { data: slides, error } = await supabase.from('announcement_slides').select('*').order('created_at', { ascending:true });
+  const { data: events } = await supabase.from('events').select('id,title').order('event_date', { ascending:false });
+  const grid = document.getElementById('slidesAdminGrid');
+  if(error || !slides || slides.length === 0){
+    grid.innerHTML = '<div class="empty-note">No slides uploaded yet.</div>';
+    return;
+  }
+  const eventOptions = (events||[]).map(e => '<option value="'+e.id+'">'+esc(e.title)+'</option>').join('');
+  grid.innerHTML = slides.map(s => {
+    const thumb = s.type === 'pdf'
+      ? '<div class="slide-thumb" style="display:flex; align-items:center; justify-content:center; font-size:10px; color:var(--ink-soft); font-weight:700;">PDF</div>'
+      : '<img class="slide-thumb" src="'+esc(s.url)+'">';
+    return '<div class="slide-admin-row">'+thumb
+      + '<select onchange="setSlideEvent(\''+s.id+'\', this.value)"><option value="">Not linked to an event</option>'+eventOptions.replace('value="'+s.linked_event_id+'"','value="'+s.linked_event_id+'" selected')+'</select>'
+      + '<button class="btn small danger" onclick="deleteSlide(\''+s.id+'\')">Delete</button>'
+      + '</div>';
+  }).join('');
+}
+
+window.setSlideEvent = async function(id, eventId){
+  await supabase.from('announcement_slides').update({ linked_event_id: eventId || null }).eq('id', id);
+};
+
+window.deleteSlide = async function(id){
+  if(!confirm('Delete this slide?')) return;
+  await supabase.from('announcement_slides').delete().eq('id', id);
+  renderSlidesAdmin();
 };
 
 (function setupSlidesDropZone(){
@@ -694,8 +706,7 @@ window.handleSlidesFile = async function(file){
     zone.classList.remove('dragover');
   }));
   zone.addEventListener('drop', (e) => {
-    const file = e.dataTransfer.files[0];
-    if(file) window.handleSlidesFile(file);
+    if(e.dataTransfer.files.length) window.handleSlidesFiles(e.dataTransfer.files);
   });
 })();
 

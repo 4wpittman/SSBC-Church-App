@@ -97,6 +97,16 @@
   .event-card-wrap{background:#fff; border:1px solid #E4DFD3; border-radius:16px 16px 8px 8px; overflow:hidden; margin-bottom:10px; cursor:pointer;}
   .event-card-wrap .event-row{border:none; border-radius:0; margin-bottom:0;}
   .signup-badge{display:inline-block; font-size:10.5px; font-weight:700; color:#fff; background:var(--brick); padding:2px 8px; border-radius:10px; margin-left:6px; vertical-align:middle;}
+
+  .slide-carousel{position:relative; border-radius:14px; overflow:hidden; margin-bottom:16px; background:var(--navy-deep); aspect-ratio:16/9;}
+  .slide-carousel .slide-item{position:absolute; inset:0; opacity:0; transition:opacity .5s ease; display:flex; align-items:center; justify-content:center;}
+  .slide-carousel .slide-item.active{opacity:1;}
+  .slide-carousel .slide-item img{width:100%; height:100%; object-fit:cover;}
+  .slide-carousel .slide-item .pdf-slide{color:#fff; text-align:center; padding:20px;}
+  .slide-carousel .slide-item .pdf-slide a{color:var(--gold); font-weight:700; text-decoration:none;}
+  .slide-dots{display:flex; gap:6px; justify-content:center; margin-top:8px;}
+  .slide-dots .dot{width:6px; height:6px; border-radius:50%; background:#DCD5C4; transition:background .2s;}
+  .slide-dots .dot.active{background:var(--gold);}
   .date-badge{width:46px; flex-shrink:0; text-align:center; background:var(--paper-dim); border-radius:6px; padding:6px 0;}
   .date-badge .mo{font-size:10px; font-weight:700; color:var(--brick); letter-spacing:.03em;}
   .date-badge .dd{font-size:18px; font-weight:700; font-family:'Fraunces',serif; color:var(--navy); line-height:1.1;}
@@ -448,6 +458,7 @@
       <div class="mini-header"><button class="back-btn" onclick="showTab('home')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg></button><h2>Announcements</h2></div>
       <div class="section" style="padding-top:8px;">
         <div id="announcementSlidesCard"></div>
+        <div class="slide-dots" id="slideDots"></div>
         <div id="announcementsList"><div class="card-desc">Loading...</div></div>
       </div>
     </div>
@@ -721,21 +732,6 @@ async function loadSettings(){
     document.getElementById('giveTextPhone').href = s.phone ? 'sms:'+cleanPhone(s.phone) : 'sms:';
     document.getElementById('giveMailAddress').textContent = s.address_line || '—';
     if(s.address_line) currentAddress = s.address_line;
-    const slidesCard = document.getElementById('announcementSlidesCard');
-    if(slidesCard){
-      if(s.announcement_slides_url){
-        const when = s.announcement_slides_updated_at ? new Date(s.announcement_slides_updated_at).toLocaleDateString('en-US',{month:'short',day:'numeric'}) : '';
-        const isImage = s.announcement_slides_type === 'image';
-        const body = isImage
-          ? '<img src="'+esc(s.announcement_slides_url)+'" style="width:100%; border-radius:10px; margin-top:10px; display:block;">'
-          : '<a href="'+esc(s.announcement_slides_url)+'" target="_blank" class="submit-btn" style="display:block; text-align:center; text-decoration:none; margin-top:10px;">View slides (PDF)</a>';
-        slidesCard.innerHTML = '<div class="arch-card"><span class="tag">This week\'s slides</span>'
-          + '<div class="card-title" style="font-size:15px;">Announcement slides'+(when ? ' · '+esc(when) : '')+'</div>'
-          + body + '</div>';
-      } else {
-        slidesCard.innerHTML = '';
-      }
-    }
     const liveBanner = document.getElementById('liveBanner');
     const liveContainer = document.getElementById('liveVideoContainer');
     const liveNote = document.getElementById('liveVideoNote');
@@ -1034,6 +1030,52 @@ async function loadAnnouncements(){
   }catch(e){ console.error('announcements load failed', e); }
 }
 
+/* --- Announcement slideshow: rotates every 5 seconds, tap a slide to jump to its linked event --- */
+let slideRotateTimer = null;
+let slideCount = 0;
+let slideIndex = 0;
+
+function goToSlide(i){
+  const items = document.querySelectorAll('.slide-carousel .slide-item');
+  const dots = document.querySelectorAll('.slide-dots .dot');
+  items.forEach(el => el.classList.remove('active'));
+  dots.forEach(el => el.classList.remove('active'));
+  if(items[i]) items[i].classList.add('active');
+  if(dots[i]) dots[i].classList.add('active');
+  slideIndex = i;
+}
+window.goToSlide = goToSlide;
+
+async function loadSlideshow(){
+  try{
+    const { data: slides, error } = await supabase.from('announcement_slides').select('*').order('created_at', { ascending:true });
+    const card = document.getElementById('announcementSlidesCard');
+    const dotsEl = document.getElementById('slideDots');
+    if(slideRotateTimer){ clearInterval(slideRotateTimer); slideRotateTimer = null; }
+    if(error || !slides || slides.length === 0){
+      card.innerHTML = '';
+      dotsEl.innerHTML = '';
+      slideCount = 0;
+      return;
+    }
+    slideCount = slides.length;
+    card.innerHTML = '<div class="slide-carousel">' + slides.map((s, i) => {
+      const clickAttr = s.linked_event_id ? ' onclick="openEventDetail(\''+s.linked_event_id+'\')" style="cursor:pointer;"' : '';
+      const inner = s.type === 'pdf'
+        ? '<div class="pdf-slide"><div style="font-weight:700; margin-bottom:8px;">Announcement slides (PDF)</div><a href="'+esc(s.url)+'" target="_blank">Tap to view</a></div>'
+        : '<img src="'+esc(s.url)+'" alt="Announcement slide">';
+      return '<div class="slide-item'+(i===0?' active':'')+'"'+clickAttr+'>'+inner+'</div>';
+    }).join('') + '</div>';
+    dotsEl.innerHTML = slides.map((s,i) => '<div class="dot'+(i===0?' active':'')+'"></div>').join('');
+    slideIndex = 0;
+    if(slideCount > 1){
+      slideRotateTimer = setInterval(() => {
+        goToSlide((slideIndex + 1) % slideCount);
+      }, 5000);
+    }
+  }catch(e){ console.error('slideshow load failed', e); }
+}
+
 /* --- Photos --- */
 async function loadPhotos(){
   try{
@@ -1068,6 +1110,7 @@ loadDirectory();
 loadGroups();
 loadVerseOfDay();
 loadAnnouncements();
+loadSlideshow();
 loadPhotos();
 loadSignupsList();
 
