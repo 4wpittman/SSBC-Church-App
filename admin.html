@@ -160,12 +160,34 @@
 
       <div class="panel" id="panel-groups">
         <div class="panel-head"><h2>Connect groups</h2><button class="btn small gold" onclick="openForm('groups')">Add group</button></div>
+
+        <div class="form-card">
+          <h3>Bulk import from CSV</h3>
+          <div class="card-desc" style="color:var(--ink-soft); margin-bottom:12px;">Columns: title, category, meta, description. A row whose title matches an existing group updates it — anything new gets added. Leave a cell blank to keep the current value.</div>
+          <div id="groupsDropZone" class="slides-dropzone" onclick="document.getElementById('groupsFileInput').click()">
+            <div>Drag a CSV here, or click to browse</div>
+          </div>
+          <input type="file" id="groupsFileInput" accept=".csv" style="display:none;" onchange="handleBulkImport('groups', this.files[0])">
+          <div class="status-msg" id="groupsImportStatus"></div>
+        </div>
+
         <table><thead><tr><th>Title</th><th>Category</th><th>Meets</th><th></th></tr></thead><tbody id="tbl-groups"></tbody></table>
         <div id="form-groups"></div>
       </div>
 
       <div class="panel" id="panel-directory">
         <div class="panel-head"><h2>Directory</h2><button class="btn small gold" onclick="openForm('directory')">Add entry</button></div>
+
+        <div class="form-card">
+          <h3>Bulk import from CSV</h3>
+          <div class="card-desc" style="color:var(--ink-soft); margin-bottom:12px;">Columns: name, role, phone, initials, spouse_name, children. A row whose name matches an existing entry updates it — anything new gets added. Leave a cell blank to keep the current value. (Photos still need to be added individually via Edit.)</div>
+          <div id="directoryDropZone" class="slides-dropzone" onclick="document.getElementById('directoryFileInput').click()">
+            <div>Drag a CSV here, or click to browse</div>
+          </div>
+          <input type="file" id="directoryFileInput" accept=".csv" style="display:none;" onchange="handleBulkImport('directory', this.files[0])">
+          <div class="status-msg" id="directoryImportStatus"></div>
+        </div>
+
         <table><thead><tr><th>Photo</th><th>Name</th><th>Role</th><th>Phone</th><th></th></tr></thead><tbody id="tbl-directory"></tbody></table>
         <div id="form-directory"></div>
       </div>
@@ -220,6 +242,7 @@
 
 <script type="module">
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import Papa from "https://esm.sh/papaparse@5.4.1";
 import { supabaseConfig } from "./supabase-config.js";
 
 const supabase = createClient(supabaseConfig.url, supabaseConfig.anonKey);
@@ -629,6 +652,93 @@ window.handleSlidesFile = async function(file){
     if(file) window.handleSlidesFile(file);
   });
 })();
+
+/* --- Bulk CSV import: rows matching an existing record (by name/title) update it;
+   everything else is added as new. Blank cells never overwrite existing data. --- */
+const BULK_IMPORT_MATCH_FIELD = { directory: 'name', groups: 'title' };
+
+window.handleBulkImport = async function(key, file){
+  if(!file) return;
+  const statusEl = document.getElementById(key+'ImportStatus');
+  statusEl.style.display = 'block';
+  statusEl.className = 'status-msg ok';
+  statusEl.textContent = 'Reading file...';
+
+  const text = await file.text();
+  const parsed = Papa.parse(text, { header: true, skipEmptyLines: true });
+  if(parsed.errors && parsed.errors.length){
+    statusEl.className = 'status-msg err';
+    statusEl.textContent = 'Could not read that CSV — check it\'s a plain comma-separated file.';
+    return;
+  }
+
+  const matchField = BULK_IMPORT_MATCH_FIELD[key];
+  const allowedFields = SCHEMAS[key].map(([k]) => k);
+
+  const { data: existing, error: fetchErr } = await supabase.from(key).select('*');
+  if(fetchErr){
+    statusEl.className = 'status-msg err';
+    statusEl.textContent = 'Could not load existing records — try again.';
+    return;
+  }
+  const existingByMatch = {};
+  (existing||[]).forEach(row => {
+    const val = (row[matchField]||'').trim().toLowerCase();
+    if(val) existingByMatch[val] = row;
+  });
+
+  let added = 0, updated = 0, skipped = 0;
+  for(const rawRow of parsed.data){
+    const matchVal = (rawRow[matchField]||'').trim();
+    if(!matchVal){ skipped++; continue; }
+    const matchKey = matchVal.toLowerCase();
+    const existingRow = existingByMatch[matchKey];
+
+    const payload = {};
+    allowedFields.forEach(f => {
+      const cell = (rawRow[f]||'').trim();
+      if(cell !== ''){
+        payload[f] = cell;
+      } else if(!existingRow){
+        payload[f] = null;
+      }
+      // if cell is blank AND a matching row exists, omit the field entirely
+      // so the update doesn't overwrite the existing value with blank
+    });
+
+    if(existingRow){
+      const { error } = await supabase.from(key).update(payload).eq('id', existingRow.id);
+      if(!error) updated++; else skipped++;
+    } else {
+      const { error } = await supabase.from(key).insert(payload);
+      if(!error) added++; else skipped++;
+    }
+  }
+
+  statusEl.className = 'status-msg ok';
+  statusEl.textContent = 'Done — '+added+' added, '+updated+' updated'+(skipped ? ', '+skipped+' skipped' : '')+'.';
+  document.getElementById(key+'FileInput').value = '';
+  renderTable(key);
+};
+
+function setupDropZone(zoneId, onFile){
+  const zone = document.getElementById(zoneId);
+  if(!zone) return;
+  ['dragenter','dragover'].forEach(evt => zone.addEventListener(evt, (e) => {
+    e.preventDefault(); e.stopPropagation();
+    zone.classList.add('dragover');
+  }));
+  ['dragleave','drop'].forEach(evt => zone.addEventListener(evt, (e) => {
+    e.preventDefault(); e.stopPropagation();
+    zone.classList.remove('dragover');
+  }));
+  zone.addEventListener('drop', (e) => {
+    const file = e.dataTransfer.files[0];
+    if(file) onFile(file);
+  });
+}
+setupDropZone('groupsDropZone', (file) => window.handleBulkImport('groups', file));
+setupDropZone('directoryDropZone', (file) => window.handleBulkImport('directory', file));
 </script>
 </body>
 </html>
