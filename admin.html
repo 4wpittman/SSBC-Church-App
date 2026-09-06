@@ -90,7 +90,10 @@
       <h1>Smiths Station Baptist — Staff dashboard</h1>
       <div class="who" id="whoText"></div>
     </div>
-    <button class="btn ghost" style="color:#fff; border-color:rgba(255,255,255,.4);" onclick="doLogout()">Sign out</button>
+    <div style="display:flex; gap:8px;">
+      <a href="index.html" class="btn ghost" style="color:#fff; border-color:rgba(255,255,255,.4); text-decoration:none; display:inline-flex; align-items:center;">View app</a>
+      <button class="btn ghost" style="color:#fff; border-color:rgba(255,255,255,.4);" onclick="doLogout()">Sign out</button>
+    </div>
   </div>
   <div class="layout">
     <div class="nav">
@@ -102,6 +105,7 @@
       <button data-panel="groups" onclick="showPanel('groups')">Connect groups</button>
       <button data-panel="directory" onclick="showPanel('directory')">Directory</button>
       <button data-panel="prayers" onclick="showPanel('prayers')">Prayer requests</button>
+      <button data-panel="signups" onclick="showPanel('signups')">Sign-ups</button>
       <button data-panel="verses" onclick="showPanel('verses')">Verse of the day</button>
       <button data-panel="announcements" onclick="showPanel('announcements')">Announcements</button>
       <button data-panel="photos" onclick="showPanel('photos')">Photos</button>
@@ -141,8 +145,8 @@
       </div>
 
       <div class="panel" id="panel-events">
-        <div class="panel-head"><h2>Events</h2><button class="btn small gold" onclick="openForm('events')">Add event</button></div>
-        <table><thead><tr><th>Title</th><th>Date</th><th>Time</th><th></th></tr></thead><tbody id="tbl-events"></tbody></table>
+        <div class="panel-head"><h2>Events</h2><button class="btn small gold" onclick="openForm('events')">Create event</button></div>
+        <table><thead><tr><th>Photo</th><th>Title</th><th>Date</th><th>Time</th><th>Sign-up?</th><th></th></tr></thead><tbody id="tbl-events"></tbody></table>
         <div id="form-events"></div>
       </div>
 
@@ -198,6 +202,15 @@
         <table><thead><tr><th>Name</th><th>Request</th><th>Sharing</th><th>Received</th><th>Prayed for?</th><th></th></tr></thead><tbody id="tbl-prayers"></tbody></table>
       </div>
 
+      <div class="panel" id="panel-signups">
+        <div class="panel-head"><h2>Sign-ups</h2></div>
+        <div class="field" style="max-width:320px;">
+          <label>Choose an event</label>
+          <select id="signupsEventSelect" onchange="loadSignupsForEvent(this.value)"></select>
+        </div>
+        <table><thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Guests</th><th>Notes</th><th>Signed up</th><th></th></tr></thead><tbody id="tbl-signups"></tbody></table>
+      </div>
+
       <div class="panel" id="panel-verses">
         <div class="panel-head"><h2>Verse of the day</h2><button class="btn small gold" onclick="openForm('verses')">Add reference</button></div>
         <div class="card-desc" style="color:var(--ink-soft); margin-bottom:14px;">Add Bible references (like "John 3:16" or "Psalm 23:1-3") — the app rotates through this list one per day and fetches the actual verse text live, so there's nothing else to maintain.</div>
@@ -210,11 +223,11 @@
 
         <div class="form-card">
           <h3>This week's announcement slides</h3>
-          <div class="card-desc" style="color:var(--ink-soft); margin-bottom:12px;">Drop a PDF here, or click to choose one. Uploading a new file automatically replaces the old one — there's only ever one current version.</div>
+          <div class="card-desc" style="color:var(--ink-soft); margin-bottom:12px;">Drop a PDF or image (JPG, PNG) here, or click to choose one. Uploading a new file automatically replaces the old one — there's only ever one current version.</div>
           <div id="slidesDropZone" class="slides-dropzone" onclick="document.getElementById('slidesFileInput').click()">
-            <div id="slidesDropText">Drag a PDF here, or click to browse</div>
+            <div id="slidesDropText">Drag a PDF or image here, or click to browse</div>
           </div>
-          <input type="file" id="slidesFileInput" accept="application/pdf" style="display:none;" onchange="handleSlidesFile(this.files[0])">
+          <input type="file" id="slidesFileInput" accept="application/pdf,image/*" style="display:none;" onchange="handleSlidesFile(this.files[0])">
           <div id="currentSlidesInfo" class="card-desc" style="margin-top:10px;"></div>
           <div class="status-msg" id="slidesUploadStatus"></div>
         </div>
@@ -251,7 +264,7 @@ let mode = 'signin';
 
 const SCHEMAS = {
   sermons: [['title','Title','text'],['series','Series','text'],['speaker','Speaker','text'],['sermon_date','Date','date'],['duration','Duration (e.g. 18:42)','text']],
-  events: [['title','Title','text'],['event_date','Date','date'],['time','Time (e.g. 10:45am)','text'],['location','Location','text']],
+  events: [['title','Title','text'],['event_date','Date','date'],['time','Time (e.g. 10:45am)','text'],['location','Location','text'],['image_url','Header photo, 16:9 works best (optional)','file'],['signup_enabled','Enable sign-up sheet for this event','checkbox']],
   leadership: [['name','Name','text'],['role','Role','text'],['bio','Bio','textarea'],['phone','Phone (optional)','text'],['initials','Initials (optional)','text'],['photo_url','Profile picture (optional)','file']],
   deacons: [['name','Name','text'],['role','Role','text'],['phone','Phone','text'],['initials','Initials (optional)','text'],['photo_url','Profile picture (optional)','file']],
   groups: [['title','Title','text'],['category',"Category (men/women/youth/young/senior)",'text'],['meta','Meets (e.g. Tuesdays, 6:00am · Fellowship Hall)','text'],['description','Description','textarea']],
@@ -261,7 +274,7 @@ const SCHEMAS = {
 };
 const TABLE_COLS = {
   sermons: ['title','speaker','sermon_date'],
-  events: ['title','event_date','time'],
+  events: ['image_url','title','event_date','time','signup_enabled'],
   leadership: ['photo_url','name','role','phone'],
   deacons: ['photo_url','name','role','phone'],
   groups: ['title','category','meta'],
@@ -340,7 +353,10 @@ async function loadAllTables(){
   await renderPrayerRequests();
   await renderPhotosAdmin();
   await loadCurrentSlidesInfo();
+  await loadSignupsEventOptions();
 }
+
+const FILE_BUCKETS = { leadership: 'profile-photos', deacons: 'profile-photos', directory: 'profile-photos', events: 'event-images' };
 
 async function renderTable(key){
   const { data: items, error } = await supabase.from(key).select('*').order('created_at', { ascending:false });
@@ -356,6 +372,9 @@ async function renderTable(key){
     let cells = cols.map(c => {
       if(schemaTypes[c] === 'file'){
         return '<td>'+(item[c] ? '<img src="'+esc(item[c])+'" style="width:32px;height:32px;object-fit:cover;border-radius:50%;">' : '<span class="empty-note" style="padding:0;">—</span>')+'</td>';
+      }
+      if(schemaTypes[c] === 'checkbox'){
+        return '<td>'+(item[c] ? 'Yes' : 'No')+'</td>';
       }
       return '<td>'+esc(item[c])+'</td>';
     }).join('');
@@ -376,6 +395,9 @@ window.openForm = function(key, editId, existingData){
     if(type === 'file'){
       const preview = data[k] ? '<img src="'+esc(data[k])+'" style="width:56px;height:56px;object-fit:cover;border-radius:50%;display:block;margin-bottom:6px;">' : '';
       return '<div class="field"><label>'+label+'</label>'+preview+'<input type="file" accept="image/*" id="f_'+key+'_'+k+'"></div>';
+    }
+    if(type === 'checkbox'){
+      return '<div class="field"><label><input type="checkbox" id="f_'+key+'_'+k+'" style="width:auto; margin-right:6px;" '+(data[k] ? 'checked' : '')+'>'+label+'</label></div>';
     }
     const val = esc(data[k]);
     if(type === 'textarea'){
@@ -419,13 +441,17 @@ window.saveItem = async function(key){
         const file = fileInput.files[0];
         if(file){
           const path = key+'/'+k+'_'+Date.now()+'_'+file.name.replace(/[^a-zA-Z0-9.\-_]/g,'_');
-          const { error: upErr } = await supabase.storage.from('profile-photos').upload(path, file);
+          const bucket = FILE_BUCKETS[key] || 'profile-photos';
+          const { error: upErr } = await supabase.storage.from(bucket).upload(path, file);
           if(upErr) throw upErr;
-          const { data: pub } = supabase.storage.from('profile-photos').getPublicUrl(path);
+          const { data: pub } = supabase.storage.from(bucket).getPublicUrl(path);
           values[k] = pub.publicUrl;
         } else {
           values[k] = (currentEditData[key] && currentEditData[key][k]) ? currentEditData[key][k] : null;
         }
+      } else if(type === 'checkbox'){
+        const cb = document.getElementById('f_'+key+'_'+k);
+        values[k] = cb ? cb.checked : false;
       } else {
         values[k] = document.getElementById('f_'+key+'_'+k).value.trim();
       }
@@ -458,6 +484,7 @@ window.saveItem = async function(key){
     statusEl.style.display = 'block';
     renderTable(key);
     if(key === 'leadership' || key === 'deacons') renderTable('directory');
+    if(key === 'events') loadSignupsEventOptions();
     setTimeout(() => window.closeForm(key), 700);
   }catch(e){
     statusEl.textContent = 'Could not save — check you are signed in and try again.';
@@ -590,8 +617,20 @@ window.deletePhoto = async function(id){
   renderPhotosAdmin();
 };
 
-/* --- Announcement slides: single-slot upload, always overwrites the same file --- */
-const SLIDES_PATH = 'current.pdf';
+/* --- Announcement slides: single-slot upload, always overwrites the same file.
+   Path includes the extension so both PDFs and images work; any old file with
+   a different extension is removed first so there's never more than one. --- */
+const SLIDES_POSSIBLE_PATHS = ['current.pdf','current.jpg','current.jpeg','current.png','current.gif','current.webp'];
+
+function extensionForFile(file){
+  if(file.type === 'application/pdf') return 'pdf';
+  if(file.type.startsWith('image/')){
+    const m = file.name.match(/\.([a-zA-Z0-9]+)$/);
+    const ext = m ? m[1].toLowerCase() : 'jpg';
+    return ['jpg','jpeg','png','gif','webp'].includes(ext) ? ext : 'jpg';
+  }
+  return null;
+}
 
 async function loadCurrentSlidesInfo(){
   const { data: s } = await supabase.from('settings').select('announcement_slides_url, announcement_slides_updated_at').eq('id',1).single();
@@ -607,8 +646,9 @@ async function loadCurrentSlidesInfo(){
 window.handleSlidesFile = async function(file){
   if(!file) return;
   const statusEl = document.getElementById('slidesUploadStatus');
-  if(file.type !== 'application/pdf'){
-    statusEl.textContent = 'Please choose a PDF file.';
+  const ext = extensionForFile(file);
+  if(!ext){
+    statusEl.textContent = 'Please choose a PDF or image file (JPG, PNG, GIF, WEBP).';
     statusEl.className = 'status-msg err';
     statusEl.style.display = 'block';
     return;
@@ -617,12 +657,18 @@ window.handleSlidesFile = async function(file){
   statusEl.className = 'status-msg ok';
   statusEl.style.display = 'block';
   try{
-    const { error: upErr } = await supabase.storage.from('announcement-slides').upload(SLIDES_PATH, file, { upsert: true });
+    const path = 'current.'+ext;
+    // Clear out any previous file at a different extension so only one ever exists
+    const otherPaths = SLIDES_POSSIBLE_PATHS.filter(p => p !== path);
+    await supabase.storage.from('announcement-slides').remove(otherPaths);
+
+    const { error: upErr } = await supabase.storage.from('announcement-slides').upload(path, file, { upsert: true });
     if(upErr) throw upErr;
-    const { data: pub } = supabase.storage.from('announcement-slides').getPublicUrl(SLIDES_PATH);
+    const { data: pub } = supabase.storage.from('announcement-slides').getPublicUrl(path);
     const cacheBustedUrl = pub.publicUrl + '?t=' + Date.now();
     const { error: dbErr } = await supabase.from('settings').update({
       announcement_slides_url: cacheBustedUrl,
+      announcement_slides_type: ext === 'pdf' ? 'pdf' : 'image',
       announcement_slides_updated_at: new Date().toISOString()
     }).eq('id',1);
     if(dbErr) throw dbErr;
@@ -739,6 +785,41 @@ function setupDropZone(zoneId, onFile){
 }
 setupDropZone('groupsDropZone', (file) => window.handleBulkImport('groups', file));
 setupDropZone('directoryDropZone', (file) => window.handleBulkImport('directory', file));
+
+/* --- Sign-ups: pick an event, see who signed up for it --- */
+async function loadSignupsEventOptions(){
+  const { data: events } = await supabase.from('events').select('id,title,signup_enabled').eq('signup_enabled', true).order('event_date', { ascending:false });
+  const sel = document.getElementById('signupsEventSelect');
+  if(!events || events.length === 0){
+    sel.innerHTML = '<option value="">No events with sign-up enabled</option>';
+    document.getElementById('tbl-signups').innerHTML = '<tr><td colspan="7" class="empty-note">Enable "sign-up sheet" on an event first.</td></tr>';
+    return;
+  }
+  sel.innerHTML = events.map(e => '<option value="'+e.id+'">'+esc(e.title)+'</option>').join('');
+  loadSignupsForEvent(sel.value);
+}
+window.loadSignupsForEvent = async function(eventId){
+  const tbody = document.getElementById('tbl-signups');
+  if(!eventId){
+    tbody.innerHTML = '<tr><td colspan="7" class="empty-note">Choose an event above.</td></tr>';
+    return;
+  }
+  const { data: items, error } = await supabase.from('event_signups').select('*').eq('event_id', eventId).order('created_at', { ascending:false });
+  if(error || !items || items.length === 0){
+    tbody.innerHTML = '<tr><td colspan="7" class="empty-note">No sign-ups yet for this event.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = items.map(s => {
+    const when = s.created_at ? new Date(s.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric'}) : '—';
+    return '<tr><td>'+esc(s.name)+'</td><td>'+esc(s.email)+'</td><td>'+esc(s.phone)+'</td><td>'+esc(s.guests)+'</td><td style="max-width:200px;">'+esc(s.notes)+'</td><td>'+when+'</td>'
+      + '<td class="actions"><button class="btn small danger" onclick="deleteSignup(\''+s.id+'\',\''+eventId+'\')">Delete</button></td></tr>';
+  }).join('');
+};
+window.deleteSignup = async function(id, eventId){
+  if(!confirm('Delete this sign-up?')) return;
+  await supabase.from('event_signups').delete().eq('id', id);
+  loadSignupsForEvent(eventId);
+};
 </script>
 </body>
 </html>
