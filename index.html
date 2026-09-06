@@ -389,7 +389,7 @@
       <div class="section" style="padding-top:8px;">
         <div class="search-box">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
-          <input type="text" placeholder="Search members...">
+          <input type="text" id="directorySearchInput" placeholder="Search members..." oninput="filterDirectory()">
         </div>
         <div id="directoryList">
           <div class="card-desc">Loading...</div>
@@ -725,14 +725,22 @@ async function loadDeacons(){
   }catch(e){ console.error('deacons load failed', e); }
 }
 
+let allDirectoryItems = [];
 async function loadDirectory(){
   try{
     const { data: items, error } = await supabase.from('directory').select('*').order('name', { ascending:true });
     if(error) throw error;
+    allDirectoryItems = items || [];
     const listEl = document.getElementById('directoryList');
-    listEl.innerHTML = (items && items.length) ? items.map(p=>renderPersonRow(p,true)).join('') : '<div class="card-desc">No directory entries yet.</div>';
+    listEl.innerHTML = allDirectoryItems.length ? allDirectoryItems.map(p=>renderPersonRow(p,true)).join('') : '<div class="card-desc">No directory entries yet.</div>';
   }catch(e){ console.error('directory load failed', e); }
 }
+window.filterDirectory = function(){
+  const q = document.getElementById('directorySearchInput').value.trim().toLowerCase();
+  const listEl = document.getElementById('directoryList');
+  const filtered = q ? allDirectoryItems.filter(p => (p.name||'').toLowerCase().includes(q)) : allDirectoryItems;
+  listEl.innerHTML = filtered.length ? filtered.map(p=>renderPersonRow(p,true)).join('') : '<div class="card-desc">No matches found.</div>';
+};
 
 async function loadGroups(){
   try{
@@ -761,6 +769,39 @@ async function fetchVerse(reference){
   if(!res.ok) throw new Error('lookup failed');
   return res.json();
 }
+function parseBookChapter(reference){
+  const m = (reference||'').match(/^(.+?)\s+(\d+)/);
+  return m ? { book: m[1].trim(), chapter: parseInt(m[2],10) } : null;
+}
+let currentBibleBook = null;
+let currentBibleChapter = null;
+function renderBibleResultBlock(data, reference){
+  const parsed = parseBookChapter(data.reference || reference);
+  if(parsed){ currentBibleBook = parsed.book; currentBibleChapter = parsed.chapter; }
+  const navHtml = parsed
+    ? '<div style="display:flex; gap:10px; margin-top:12px;">'
+      + '<button class="btn ghost" style="flex:1; padding:10px; border-radius:8px; border:1px solid #DCD5C4; background:#fff; font-family:inherit; font-weight:700; cursor:pointer;" onclick="goToChapter(-1)">← Previous chapter</button>'
+      + '<button class="btn ghost" style="flex:1; padding:10px; border-radius:8px; border:1px solid #DCD5C4; background:#fff; font-family:inherit; font-weight:700; cursor:pointer;" onclick="goToChapter(1)">Next chapter →</button>'
+      + '</div>'
+    : '';
+  return '<div class="arch-card">'+renderVerseCard(data, reference)+navHtml+'</div>';
+}
+window.goToChapter = async function(delta){
+  if(!currentBibleBook || !currentBibleChapter) return;
+  const newChapter = currentBibleChapter + delta;
+  if(newChapter < 1) return;
+  const nextRef = currentBibleBook+' '+newChapter;
+  const resultEl = document.getElementById('bibleResult');
+  resultEl.innerHTML = '<div class="card-desc">Loading '+esc(nextRef)+'...</div>';
+  document.getElementById('bibleSearchInput').value = nextRef;
+  try{
+    const data = await fetchVerse(nextRef);
+    resultEl.innerHTML = renderBibleResultBlock(data, nextRef);
+    document.querySelector('.screens').scrollTop = 0;
+  }catch(e){
+    resultEl.innerHTML = '<div class="card-desc">That chapter isn\'t available — you may be at the start or end of the book.</div>';
+  }
+};
 async function loadVerseOfDay(){
   try{
     const { data: items, error } = await supabase.from('verses').select('*');
@@ -786,7 +827,7 @@ window.searchBible = async function(){
   resultEl.innerHTML = '<div class="card-desc">Looking up '+esc(ref)+'...</div>';
   try{
     const data = await fetchVerse(ref);
-    resultEl.innerHTML = '<div class="arch-card">'+renderVerseCard(data, ref)+'</div>';
+    resultEl.innerHTML = renderBibleResultBlock(data, ref);
   }catch(e){
     resultEl.innerHTML = '<div class="card-desc">Couldn\'t find "'+esc(ref)+'" — try a format like "John 3:16" or "Psalm 23".</div>';
   }

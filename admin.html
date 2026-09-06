@@ -170,6 +170,7 @@
 
       <div class="panel" id="panel-prayers">
         <div class="panel-head"><h2>Prayer requests</h2></div>
+        <div class="field" style="max-width:320px;"><input id="prayerSearchInput" placeholder="Search by name..." oninput="filterPrayerRequests()"></div>
         <table><thead><tr><th>Name</th><th>Request</th><th>Sharing</th><th>Received</th><th>Prayed for?</th><th></th></tr></thead><tbody id="tbl-prayers"></tbody></table>
       </div>
 
@@ -431,11 +432,11 @@ window.saveSettings = async function(){
   }
 };
 
-async function renderPrayerRequests(){
-  const { data: items, error } = await supabase.from('prayer_requests').select('*').order('created_at', { ascending:false });
+let allPrayerItems = [];
+function renderPrayerRows(items){
   const tbody = document.getElementById('tbl-prayers');
-  if(error || !items || items.length === 0){
-    tbody.innerHTML = '<tr><td colspan="6" class="empty-note">No prayer requests yet.</td></tr>';
+  if(!items || items.length === 0){
+    tbody.innerHTML = '<tr><td colspan="6" class="empty-note">No prayer requests found.</td></tr>';
     return;
   }
   tbody.innerHTML = items.map(p => {
@@ -446,6 +447,16 @@ async function renderPrayerRequests(){
       + '<td class="actions"><button class="btn small danger" onclick="deletePrayer(\''+p.id+'\')">Delete</button></td></tr>';
   }).join('');
 }
+async function renderPrayerRequests(){
+  const { data: items, error } = await supabase.from('prayer_requests').select('*').order('created_at', { ascending:false });
+  allPrayerItems = (error || !items) ? [] : items;
+  renderPrayerRows(allPrayerItems);
+}
+window.filterPrayerRequests = function(){
+  const q = document.getElementById('prayerSearchInput').value.trim().toLowerCase();
+  const filtered = q ? allPrayerItems.filter(p => (p.name||'').toLowerCase().includes(q)) : allPrayerItems;
+  renderPrayerRows(filtered);
+};
 
 window.togglePrayerHandled = async function(id, handled){
   await supabase.from('prayer_requests').update({ handled }).eq('id', id);
