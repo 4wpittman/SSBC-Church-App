@@ -343,7 +343,7 @@
       </div>
       <div class="give-methods">
         <div class="section-head" style="margin-bottom:6px;"><h2 style="font-size:15px;">Other ways to give</h2></div>
-        <div class="method-row"><div class="method-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1C2B4A" stroke-width="1.8"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 9h20"/></svg></div><div><div class="method-title">Text to give</div><div class="method-sub">Text an amount to <span id="giveTextPhone">—</span></div></div></div>
+        <div class="method-row"><div class="method-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1C2B4A" stroke-width="1.8"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 9h20"/></svg></div><div><div class="method-title">Text to give</div><div class="method-sub">Text an amount to <a href="sms:" id="giveTextPhone" style="color:inherit; font-weight:600;">—</a></div></div></div>
         <div class="method-row"><div class="method-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1C2B4A" stroke-width="1.8"><path d="M20 12v6a2 2 0 01-2 2H6a2 2 0 01-2-2v-6M16 6l-4-4-4 4M12 2v14"/></svg></div><div><div class="method-title">In-service offering</div><div class="method-sub">Give during Sunday worship</div></div></div>
         <div class="method-row"><div class="method-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1C2B4A" stroke-width="1.8"><path d="M4 4h16v16H4z"/><path d="M4 9h16M9 4v16"/></svg></div><div><div class="method-title">Mail a check</div><div class="method-sub" id="giveMailAddress">—</div></div></div>
       </div>
@@ -370,7 +370,7 @@
       <div class="section">
         <div class="section-head"><h2>Visiting us</h2></div>
         <div class="info-block"><div class="it-title">Address</div><div class="it-val"><a href="#" onclick="return false;" id="visitAddress">—</a></div></div>
-        <div class="info-block"><div class="it-title">Phone</div><div class="it-val"><a href="#" onclick="return false;" id="visitPhone">—</a></div></div>
+        <div class="info-block"><div class="it-title">Phone</div><div class="it-val"><a href="tel:" id="visitPhone">—</a></div></div>
         <div class="info-block"><div class="it-title">New here?</div><div class="it-val">Stop by the welcome table in the foyer any Sunday — someone will be glad to show you around.</div></div>
       </div>
     </div>
@@ -605,6 +605,9 @@ function esc(s){
   d.textContent = s || '';
   return d.innerHTML;
 }
+function cleanPhone(phone){
+  return (phone || '').replace(/[^\d+]/g, '');
+}
 
 /* --- render functions --- */
 function renderEventRow(ev){
@@ -623,7 +626,7 @@ function renderBioCard(p){
     : esc(p.initials||initials(p.name));
   return '<div class="bio-card"><div class="bio-avatar" style="overflow:hidden;">'+avatarContent+'</div>'
     + '<div><div class="bio-name">'+esc(p.name)+'</div><div class="bio-role">'+esc(p.role||'')+'</div><div class="bio-text">'+esc(p.bio||'')+'</div>'
-    + (p.phone ? '<div class="person-contact" style="margin-top:4px;">'+esc(p.phone)+'</div>' : '') + '</div></div>';
+    + (p.phone ? '<div class="person-contact" style="margin-top:4px;"><a href="tel:'+cleanPhone(p.phone)+'" style="color:inherit; text-decoration:none;">'+esc(p.phone)+'</a></div>' : '') + '</div></div>';
 }
 function renderPersonRow(p, withContact){
   const avatarContent = p.photo_url
@@ -646,7 +649,7 @@ function renderPersonRow(p, withContact){
   return '<div class="person-row" style="flex-wrap:wrap; align-items:'+(familyHtml?'flex-start':'center')+';">'
     + '<div class="avatar" style="overflow:hidden; flex-shrink:0;">'+avatarContent+'</div>'
     + '<div style="flex:1; min-width:0;"><div class="person-name">'+esc(p.name)+'</div><div class="person-role">'+esc(p.role||'')+'</div>'
-    + (withContact && p.phone ? '<div class="person-contact">'+esc(p.phone)+'</div>' : '') + '</div>'
+    + (withContact && p.phone ? '<div class="person-contact"><a href="tel:'+cleanPhone(p.phone)+'" style="color:inherit; text-decoration:none;">'+esc(p.phone)+'</a></div>' : '') + '</div>'
     + familyHtml
     + '</div>';
 }
@@ -668,7 +671,9 @@ async function loadSettings(){
     document.getElementById('wedTimeText').textContent = s.wednesday_times || '—';
     document.getElementById('visitAddress').textContent = s.address_line || '—';
     document.getElementById('visitPhone').textContent = s.phone || '—';
+    document.getElementById('visitPhone').href = s.phone ? 'tel:'+cleanPhone(s.phone) : 'tel:';
     document.getElementById('giveTextPhone').textContent = s.phone || '—';
+    document.getElementById('giveTextPhone').href = s.phone ? 'sms:'+cleanPhone(s.phone) : 'sms:';
     document.getElementById('giveMailAddress').textContent = s.address_line || '—';
     if(s.address_line) currentAddress = s.address_line;
     const slidesCard = document.getElementById('announcementSlidesCard');
