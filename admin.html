@@ -136,6 +136,13 @@
           <div class="card-desc" style="font-size:12px; color:var(--ink-soft); margin-bottom:14px;">
             When you go live on Facebook, open that post, click the three dots → Copy Link, and paste it here along with checking "Show Live now banner." The app will play the actual video, not just link out to Facebook.
           </div>
+          <div class="field">
+            <label>Giving link (any provider)</label>
+            <input id="s_givingUrl" placeholder="https://your-giving-provider.com/yourchurch">
+          </div>
+          <div class="card-desc" style="font-size:12px; color:var(--ink-soft); margin-bottom:14px;">
+            Works with any giving platform — PayPal, Givelify, Pushpay, Tithe.ly, a bank's own giving page, etc. Paste whatever link your provider gives you here, and the Give button in the app will open it.
+          </div>
           <button class="btn gold" onclick="saveSettings()">Save</button>
           <div class="status-msg" id="settingsStatus"></div>
         </div>
@@ -266,7 +273,7 @@ const supabase = createClient(supabaseConfig.url, supabaseConfig.anonKey);
 let mode = 'signin';
 
 const SCHEMAS = {
-  sermons: [['title','Title','text'],['series','Series','text'],['speaker','Speaker','text'],['sermon_date','Date','date'],['duration','Duration (e.g. 18:42)','text']],
+  sermons: [['title','Title','text'],['series','Series','text'],['speaker','Speaker','text'],['sermon_date','Date','date'],['duration','Duration (e.g. 18:42)','text'],['video_url','Facebook video link (optional \u2014 same link you used for Live works great after service)','text']],
   events: [['title','Title','text'],['event_date','Date','date'],['time','Time (e.g. 10:45am)','text'],['location','Location','text'],['image_url','Header photo, 16:9 works best (optional)','file'],['signup_enabled','Enable sign-up sheet for this event','checkbox']],
   leadership: [['name','Name','text'],['role','Role','text'],['bio','Bio','textarea'],['phone','Phone (optional)','text'],['initials','Initials (optional)','text'],['photo_url','Profile picture (optional)','file']],
   deacons: [['name','Name','text'],['role','Role','text'],['phone','Phone','text'],['initials','Initials (optional)','text'],['photo_url','Profile picture (optional)','file']],
@@ -507,6 +514,7 @@ async function loadSettingsForm(){
   document.getElementById('s_liveTitle').value = s.live_title || '';
   document.getElementById('s_liveSub').value = s.live_sub || '';
   document.getElementById('s_liveVideoUrl').value = s.live_video_url || '';
+  document.getElementById('s_givingUrl').value = s.giving_url || '';
 }
 window.saveSettings = async function(){
   const statusEl = document.getElementById('settingsStatus');
@@ -519,7 +527,8 @@ window.saveSettings = async function(){
       is_live: document.getElementById('s_isLive').checked,
       live_title: document.getElementById('s_liveTitle').value.trim(),
       live_sub: document.getElementById('s_liveSub').value.trim(),
-      live_video_url: document.getElementById('s_liveVideoUrl').value.trim()
+      live_video_url: document.getElementById('s_liveVideoUrl').value.trim(),
+      giving_url: document.getElementById('s_givingUrl').value.trim()
     }).eq('id',1);
     if(error) throw error;
     statusEl.textContent = 'Saved.';

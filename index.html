@@ -360,7 +360,7 @@
           <div class="amt" onclick="selectAmt(this)">$100</div>
           <div class="amt" onclick="selectAmt(this)">Other</div>
         </div>
-        <button class="give-cta" onclick="alert('Prototype only — a real giving flow (Tithe.ly, Pushpay, etc.) would connect here.')">Give $50 now</button>
+        <button class="give-cta" id="giveCtaBtn" onclick="openGivingLink()">Give $50 now</button>
       </div>
       <div class="give-methods">
         <div class="section-head" style="margin-bottom:6px;"><h2 style="font-size:15px;">Other ways to give</h2></div>
@@ -659,11 +659,38 @@ function renderEventRow(ev){
   var image = ev.image_url ? '<img src="'+esc(ev.image_url)+'" class="event-image-16x9">' : '';
   return '<div class="event-card-wrap" onclick="openEventDetail(\''+ev.id+'\')">'+image+inner+'</div>';
 }
-function renderSermonCard(s){
+let sermonVideoUrls = {};
+function renderSermonCard(s, context){
+  context = context || 'x';
+  const containerId = 'sermon-video-'+context+'-'+s.id;
+  const hasVideo = !!s.video_url;
+  if(hasVideo) sermonVideoUrls[s.id] = s.video_url;
+  const playAction = hasVideo
+    ? "toggleSermonVideo('"+containerId+"','"+s.id+"')"
+    : "alert('No video linked to this sermon yet.')";
   return '<div class="arch-card"><span class="tag sermon">'+esc(s.series||'Sermon')+'</span>'
     + '<div class="card-title">'+esc(s.title)+'</div><div class="card-meta">'+esc(s.speaker||'')+' · '+esc(formatDisplay(s.sermon_date))+'</div>'
-    + '<div class="play-row"><button class="play-btn" onclick="alert(\'Prototype only — audio streaming connects here.\')"><svg viewBox="0 0 24 24" fill="#F8F6F1"><path d="M8 5v14l11-7z"/></svg></button><div class="track"></div><div class="dur">'+esc(s.duration||'')+'</div></div></div>';
+    + '<div class="play-row"><button class="play-btn" onclick="'+playAction+'"><svg viewBox="0 0 24 24" fill="#F8F6F1"><path d="M8 5v14l11-7z"/></svg></button><div class="track"></div><div class="dur">'+esc(s.duration||'')+'</div></div>'
+    + '<div id="'+containerId+'" style="display:none; margin-top:12px; border-radius:10px; overflow:hidden; aspect-ratio:16/9; background:var(--navy-deep);"></div>'
+    + '</div>';
 }
+window.toggleSermonVideo = function(containerId, sermonId){
+  const container = document.getElementById(containerId);
+  if(!container) return;
+  const isOpen = container.style.display === 'block';
+  if(isOpen){
+    container.style.display = 'none';
+    container.innerHTML = '';
+    return;
+  }
+  const url = sermonVideoUrls[sermonId];
+  if(!url) return;
+  const encoded = encodeURIComponent(url);
+  container.innerHTML = '<iframe src="https://www.facebook.com/plugins/video.php?href='+encoded+'&show_text=false" '
+    + 'style="width:100%; height:100%; border:none; overflow:hidden;" scrolling="no" frameborder="0" '
+    + 'allowfullscreen="true" allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"></iframe>';
+  container.style.display = 'block';
+};
 function renderBioCard(p){
   const avatarContent = p.photo_url
     ? '<img src="'+esc(p.photo_url)+'" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">'
@@ -719,6 +746,15 @@ window.openDirections = function(){
   window.open('https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(currentAddress), '_blank');
 };
 
+let currentGivingUrl = '';
+window.openGivingLink = function(){
+  if(currentGivingUrl){
+    window.open(currentGivingUrl, '_blank');
+  } else {
+    alert('Online giving isn\'t set up yet — check back soon, or give in person during a service.');
+  }
+};
+
 async function loadSettings(){
   try{
     const { data: s, error } = await supabase.from('settings').select('*').eq('id',1).single();
@@ -732,6 +768,7 @@ async function loadSettings(){
     document.getElementById('giveTextPhone').href = s.phone ? 'sms:'+cleanPhone(s.phone) : 'sms:';
     document.getElementById('giveMailAddress').textContent = s.address_line || '—';
     if(s.address_line) currentAddress = s.address_line;
+    if(s.giving_url) currentGivingUrl = s.giving_url;
     const liveBanner = document.getElementById('liveBanner');
     const liveContainer = document.getElementById('liveVideoContainer');
     const liveNote = document.getElementById('liveVideoNote');
@@ -769,8 +806,8 @@ async function loadSermons(){
       featureEl.innerHTML = '<div class="card-desc">No sermons posted yet.</div>';
       return;
     }
-    listEl.innerHTML = items.map(renderSermonCard).join('');
-    featureEl.innerHTML = renderSermonCard(items[0]);
+    listEl.innerHTML = items.map(s => renderSermonCard(s, 'list')).join('');
+    featureEl.innerHTML = renderSermonCard(items[0], 'feature');
   }catch(e){ console.error('sermons load failed', e); }
 }
 
@@ -939,9 +976,15 @@ function renderVerseCard(data, reference){
     + '<div class="card-meta" style="margin-top:8px; margin-bottom:0;">'+esc(data.reference || reference)+' · '+esc(data.translation_name || 'WEB')+'</div>';
 }
 async function fetchVerse(reference){
-  const res = await fetch('https://bible-api.com/'+encodeURIComponent(reference));
-  if(!res.ok) throw new Error('lookup failed');
-  return res.json();
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 8000);
+  try{
+    const res = await fetch('https://bible-api.com/'+encodeURIComponent(reference), { signal: controller.signal });
+    if(!res.ok) throw new Error('lookup failed');
+    return await res.json();
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }
 function parseBookChapter(reference){
   const m = (reference||'').match(/^(.+?)\s+(\d+)/);
@@ -977,21 +1020,31 @@ window.goToChapter = async function(delta){
   }
 };
 async function loadVerseOfDay(){
+  const cardEl = document.getElementById('verseOfDayCard');
+  const bibleTarget = document.getElementById('bibleVerseOfDay');
   try{
     const { data: items, error } = await supabase.from('verses').select('*');
     if(error || !items || items.length === 0){
-      document.getElementById('verseOfDayCard').innerHTML = '<div class="card-desc">No verses set up yet.</div>';
+      cardEl.innerHTML = '<div class="card-desc">No verses set up yet.</div>';
       return;
     }
     const pick = items[dayOfYear() % items.length];
-    const data = await fetchVerse(pick.reference);
+    let data;
+    try{
+      data = await fetchVerse(pick.reference);
+    }catch(firstErr){
+      console.error('verse of day failed, trying fallback', firstErr);
+      data = await fetchVerse('John 3:16'); // reliable fallback if today's pick fails or the network hiccups
+    }
     const html = renderVerseCard(data, pick.reference);
-    document.getElementById('verseOfDayCard').innerHTML = html;
-    const bibleTarget = document.getElementById('bibleVerseOfDay');
+    cardEl.innerHTML = html;
     if(bibleTarget) bibleTarget.innerHTML = html;
   }catch(e){
-    console.error('verse of day failed', e);
-    document.getElementById('verseOfDayCard').innerHTML = '<div class="card-desc">Couldn\'t load today\'s verse — check your connection.</div>';
+    console.error('verse of day failed completely', e);
+    const errorHtml = '<div class="card-desc">Couldn\'t load today\'s verse — check your connection.</div>'
+      + '<button class="btn ghost" style="margin-top:8px; padding:8px 14px; border-radius:8px; border:1px solid #DCD5C4; background:#fff; font-family:inherit; font-weight:600; cursor:pointer; font-size:12.5px;" onclick="loadVerseOfDay()">Try again</button>';
+    cardEl.innerHTML = errorHtml;
+    if(bibleTarget) bibleTarget.innerHTML = errorHtml;
   }
 }
 window.searchBible = async function(){
