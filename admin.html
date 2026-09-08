@@ -106,12 +106,14 @@
       <button data-panel="leadership" onclick="showPanel('leadership')">Leadership</button>
       <button data-panel="deacons" onclick="showPanel('deacons')">Deacons</button>
       <button data-panel="groups" onclick="showPanel('groups')">Connect groups</button>
+      <button data-panel="ministries" onclick="showPanel('ministries')">Ministries</button>
       <button data-panel="directory" onclick="showPanel('directory')">Directory</button>
       <button data-panel="prayers" onclick="showPanel('prayers')">Prayer requests</button>
       <button data-panel="signups" onclick="showPanel('signups')">Sign-ups</button>
       <button data-panel="verses" onclick="showPanel('verses')">Verse of the day</button>
       <button data-panel="announcements" onclick="showPanel('announcements')">Announcements</button>
       <button data-panel="photos" onclick="showPanel('photos')">Photos</button>
+      <button data-panel="beliefs" onclick="showPanel('beliefs')">Our Beliefs</button>
     </div>
     <div class="content">
 
@@ -119,9 +121,10 @@
         <div class="panel-head"><h2>Service times &amp; live status</h2></div>
         <div class="form-card">
           <div class="form-row">
-            <div class="field"><label>Sunday times</label><input id="s_sunday" placeholder="9:30 & 10:45am"></div>
-            <div class="field"><label>Wednesday times</label><input id="s_wed" placeholder="6:30pm"></div>
+            <div class="field"><label>Sunday School time</label><input id="s_sundaySchool" placeholder="9:30am"></div>
+            <div class="field"><label>Sunday Worship time</label><input id="s_sundayWorship" placeholder="10:45am"></div>
           </div>
+          <div class="field"><label>Wednesday times</label><input id="s_wed" placeholder="6:30pm"></div>
           <div class="field"><label>Address</label><input id="s_address" placeholder="2210 Lee Rd, Smiths Station, AL 36877"></div>
           <div class="field"><label>Phone</label><input id="s_phone" placeholder="(334) 555-0142"></div>
           <div class="field"><label><input type="checkbox" id="s_isLive" style="width:auto; margin-right:6px;">Show "Live now" banner</label></div>
@@ -143,6 +146,11 @@
           <div class="card-desc" style="font-size:12px; color:var(--ink-soft); margin-bottom:14px;">
             Works with any giving platform — PayPal, Givelify, Pushpay, Tithe.ly, a bank's own giving page, etc. Paste whatever link your provider gives you here, and the Give button in the app will open it.
           </div>
+          <div class="form-row">
+            <div class="field"><label>Facebook page URL</label><input id="s_facebookUrl" placeholder="https://facebook.com/yourchurch"></div>
+            <div class="field"><label>Instagram URL</label><input id="s_instagramUrl" placeholder="https://instagram.com/yourchurch"></div>
+          </div>
+          <div class="field"><label>YouTube URL</label><input id="s_youtubeUrl" placeholder="https://youtube.com/@yourchurch"></div>
           <button class="btn gold" onclick="saveSettings()">Save</button>
           <div class="status-msg" id="settingsStatus"></div>
         </div>
@@ -187,6 +195,12 @@
 
         <table><thead><tr><th>Title</th><th>Category</th><th>Meets</th><th></th></tr></thead><tbody id="tbl-groups"></tbody></table>
         <div id="form-groups"></div>
+      </div>
+
+      <div class="panel" id="panel-ministries">
+        <div class="panel-head"><h2>Ministries</h2><button class="btn small gold" onclick="openForm('ministries')">Add ministry</button></div>
+        <table><thead><tr><th>Name</th><th>Location</th><th></th></tr></thead><tbody id="tbl-ministries"></tbody></table>
+        <div id="form-ministries"></div>
       </div>
 
       <div class="panel" id="panel-directory">
@@ -259,6 +273,13 @@
         <div class="photo-admin-grid" id="photosAdminGrid" style="margin-top:16px;"></div>
       </div>
 
+      <div class="panel" id="panel-beliefs">
+        <div class="panel-head"><h2>Our Beliefs</h2><button class="btn small gold" onclick="openForm('beliefs')">Add topic</button></div>
+        <div class="card-desc" style="color:var(--ink-soft); margin-bottom:14px;">The 19 standard topics are pre-loaded with empty statements — click Edit on each to add your church's wording. Order controls the sequence shown in the app (lower numbers first).</div>
+        <table><thead><tr><th>Order</th><th>Title</th><th></th></tr></thead><tbody id="tbl-beliefs"></tbody></table>
+        <div id="form-beliefs"></div>
+      </div>
+
     </div>
   </div>
 </div>
@@ -280,7 +301,9 @@ const SCHEMAS = {
   groups: [['title','Title','text'],['category',"Category (men/women/youth/young/senior)",'text'],['meta','Meets (e.g. Tuesdays, 6:00am · Fellowship Hall)','text'],['description','Description','textarea']],
   directory: [['name','Name','text'],['role','Role / note','text'],['phone','Phone (optional)','text'],['initials','Initials (optional)','text'],['photo_url','Profile picture (optional)','file'],['spouse_name','Spouse name (optional)','text'],['spouse_photo_url','Spouse profile picture (optional)','file'],['children','Children (optional — e.g. Emma, Jack, and Lily)','text']],
   verses: [['reference','Reference (e.g. John 3:16)','text']],
-  announcements: [['title','Title','text'],['body','Details','textarea']]
+  announcements: [['title','Title','text'],['body','Details','textarea']],
+  ministries: [['name','Ministry name','text'],['description','Description','textarea'],['location','Location (optional)','text'],['learn_more_url','Learn more link (optional)','text']],
+  beliefs: [['title','Title','text'],['body','Statement (your church\'s wording)','textarea'],['order_num','Order (lower shows first)','text']]
 };
 const TABLE_COLS = {
   sermons: ['title','speaker','sermon_date'],
@@ -290,7 +313,9 @@ const TABLE_COLS = {
   groups: ['title','category','meta'],
   directory: ['photo_url','name','role','phone'],
   verses: ['reference'],
-  announcements: ['title']
+  announcements: ['title'],
+  ministries: ['name','location'],
+  beliefs: ['order_num','title']
 };
 
 let currentEditId = {};
@@ -369,7 +394,8 @@ async function loadAllTables(){
 const FILE_BUCKETS = { leadership: 'profile-photos', deacons: 'profile-photos', directory: 'profile-photos', events: 'event-images' };
 
 async function renderTable(key){
-  const { data: items, error } = await supabase.from(key).select('*').order('created_at', { ascending:false });
+  const orderCol = key === 'beliefs' ? 'order_num' : 'created_at';
+  const { data: items, error } = await supabase.from(key).select('*').order(orderCol, { ascending: key === 'beliefs' });
   const tbody = document.getElementById('tbl-'+key);
   const cols = TABLE_COLS[key];
   const schemaTypes = {};
@@ -466,6 +492,9 @@ window.saveItem = async function(key){
         values[k] = document.getElementById('f_'+key+'_'+k).value.trim();
       }
     }
+    if('order_num' in values){
+      values.order_num = values.order_num === '' ? 0 : parseInt(values.order_num, 10) || 0;
+    }
 
     let error;
     if(currentEditId[key]){
@@ -506,7 +535,8 @@ window.saveItem = async function(key){
 async function loadSettingsForm(){
   const { data: s } = await supabase.from('settings').select('*').eq('id',1).single();
   if(!s) return;
-  document.getElementById('s_sunday').value = s.sunday_times || '';
+  document.getElementById('s_sundaySchool').value = s.sunday_school_time || '';
+  document.getElementById('s_sundayWorship').value = s.sunday_worship_time || '';
   document.getElementById('s_wed').value = s.wednesday_times || '';
   document.getElementById('s_address').value = s.address_line || '';
   document.getElementById('s_phone').value = s.phone || '';
@@ -515,12 +545,16 @@ async function loadSettingsForm(){
   document.getElementById('s_liveSub').value = s.live_sub || '';
   document.getElementById('s_liveVideoUrl').value = s.live_video_url || '';
   document.getElementById('s_givingUrl').value = s.giving_url || '';
+  document.getElementById('s_facebookUrl').value = s.facebook_url || '';
+  document.getElementById('s_instagramUrl').value = s.instagram_url || '';
+  document.getElementById('s_youtubeUrl').value = s.youtube_url || '';
 }
 window.saveSettings = async function(){
   const statusEl = document.getElementById('settingsStatus');
   try{
     const { error } = await supabase.from('settings').update({
-      sunday_times: document.getElementById('s_sunday').value.trim(),
+      sunday_school_time: document.getElementById('s_sundaySchool').value.trim(),
+      sunday_worship_time: document.getElementById('s_sundayWorship').value.trim(),
       wednesday_times: document.getElementById('s_wed').value.trim(),
       address_line: document.getElementById('s_address').value.trim(),
       phone: document.getElementById('s_phone').value.trim(),
@@ -528,7 +562,10 @@ window.saveSettings = async function(){
       live_title: document.getElementById('s_liveTitle').value.trim(),
       live_sub: document.getElementById('s_liveSub').value.trim(),
       live_video_url: document.getElementById('s_liveVideoUrl').value.trim(),
-      giving_url: document.getElementById('s_givingUrl').value.trim()
+      giving_url: document.getElementById('s_givingUrl').value.trim(),
+      facebook_url: document.getElementById('s_facebookUrl').value.trim(),
+      instagram_url: document.getElementById('s_instagramUrl').value.trim(),
+      youtube_url: document.getElementById('s_youtubeUrl').value.trim()
     }).eq('id',1);
     if(error) throw error;
     statusEl.textContent = 'Saved.';

@@ -232,7 +232,13 @@
         <div class="greeting" id="greetingText">Welcome home.</div>
         <div class="sub">You're always welcome here, whoever you are.</div>
         <div class="times">
-          <div class="time-chip"><div class="day">Sunday</div><div class="t" id="sundayTimeText">—</div></div>
+          <div class="time-chip">
+            <div class="day">Sunday</div>
+            <div class="t" style="font-size:12.5px; line-height:1.5;">
+              <div>Sunday School: <span id="sundaySchoolTimeText">—</span></div>
+              <div>Worship: <span id="sundayWorshipTimeText">—</span></div>
+            </div>
+          </div>
           <div class="time-chip"><div class="day">Wednesday</div><div class="t" id="wedTimeText">—</div></div>
         </div>
       </div>
@@ -250,7 +256,7 @@
       </div>
 
       <div class="section">
-        <div class="section-head"><h2>Announcements</h2><button class="link" onclick="openScreen('announcements')">See all</button></div>
+        <div class="section-head"><h2>Announcements &amp; Ministries</h2><button class="link" onclick="openScreen('announcements')">See all</button></div>
         <div id="homeAnnouncement">
           <div class="card-desc">Loading...</div>
         </div>
@@ -309,6 +315,10 @@
           <button class="quick-item" onclick="openScreen('signups')">
             <svg class="qi-icon" viewBox="0 0 24 24" fill="none" stroke="#8B4A3B" stroke-width="1.8"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
             <span class="qi-label">Sign Up</span><span class="qi-sub">RSVP for events</span>
+          </button>
+          <button class="quick-item" onclick="openScreen('beliefs')">
+            <svg class="qi-icon" viewBox="0 0 24 24" fill="none" stroke="#6E7F5C" stroke-width="1.8"><path d="M4 19.5V5.5A2.5 2.5 0 016.5 3H20v15.5H6.5A2.5 2.5 0 004 21h16"/></svg>
+            <span class="qi-label">Our Beliefs</span><span class="qi-sub">What we teach</span>
           </button>
         </div>
       </div>
@@ -395,6 +405,10 @@
         <div class="info-block"><div class="it-title">Phone</div><div class="it-val"><a href="tel:" id="visitPhone">—</a></div></div>
         <div class="info-block"><div class="it-title">New here?</div><div class="it-val">Stop by the welcome table in the foyer any Sunday — someone will be glad to show you around.</div></div>
       </div>
+      <div class="section" style="padding-top:0;">
+        <div class="section-head"><h2>Follow us</h2></div>
+        <div id="socialLinksRow" style="display:flex; gap:12px;"></div>
+      </div>
     </div>
 
     <!-- LIVE STREAM -->
@@ -455,11 +469,32 @@
 
     <!-- ANNOUNCEMENTS -->
     <div class="screen" id="screen-announcements">
-      <div class="mini-header"><button class="back-btn" onclick="showTab('home')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg></button><h2>Announcements</h2></div>
+      <div class="mini-header"><button class="back-btn" onclick="showTab('home')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg></button><h2>Announcements &amp; Ministries</h2></div>
       <div class="section" style="padding-top:8px;">
+        <div class="arch-card" style="display:flex; align-items:center; gap:14px;">
+          <img src="qr-code.png" alt="Scan to open the app" style="width:76px; height:76px; border-radius:8px; flex-shrink:0;">
+          <div>
+            <div class="card-title" style="font-size:14px; margin-bottom:2px;">Share this app</div>
+            <div class="card-desc" style="margin-bottom:0;">Scan with a phone camera to open it instantly — great for the bulletin or a friend.</div>
+          </div>
+        </div>
+
         <div id="announcementSlidesCard"></div>
         <div class="slide-dots" id="slideDots"></div>
         <div id="announcementsList"><div class="card-desc">Loading...</div></div>
+      </div>
+
+      <div class="section" style="padding-top:4px;">
+        <div class="section-head"><h2>Ministries</h2></div>
+        <div id="ministriesList"><div class="card-desc">Loading...</div></div>
+      </div>
+    </div>
+
+    <!-- OUR BELIEFS -->
+    <div class="screen" id="screen-beliefs">
+      <div class="mini-header"><button class="back-btn" onclick="showTab('home')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg></button><h2>Our Beliefs</h2></div>
+      <div class="section" style="padding-top:8px;">
+        <div id="beliefsList"><div class="card-desc">Loading...</div></div>
       </div>
     </div>
 
@@ -759,7 +794,8 @@ async function loadSettings(){
   try{
     const { data: s, error } = await supabase.from('settings').select('*').eq('id',1).single();
     if(error || !s) return;
-    document.getElementById('sundayTimeText').textContent = s.sunday_times || '—';
+    document.getElementById('sundaySchoolTimeText').textContent = s.sunday_school_time || '—';
+    document.getElementById('sundayWorshipTimeText').textContent = s.sunday_worship_time || '—';
     document.getElementById('wedTimeText').textContent = s.wednesday_times || '—';
     document.getElementById('visitAddress').textContent = s.address_line || '—';
     document.getElementById('visitPhone').textContent = s.phone || '—';
@@ -769,6 +805,23 @@ async function loadSettings(){
     document.getElementById('giveMailAddress').textContent = s.address_line || '—';
     if(s.address_line) currentAddress = s.address_line;
     if(s.giving_url) currentGivingUrl = s.giving_url;
+
+    const socialRow = document.getElementById('socialLinksRow');
+    if(socialRow){
+      const socials = [
+        { url: s.facebook_url, label: 'Facebook', icon: '<path d="M15 8h-2a2 2 0 00-2 2v2H9v3h2v7h3v-7h2.5l.5-3H14v-1.5a.5.5 0 01.5-.5H16z"/><circle cx="12" cy="12" r="10"/>' },
+        { url: s.instagram_url, label: 'Instagram', icon: '<rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1"/>' },
+        { url: s.youtube_url, label: 'YouTube', icon: '<rect x="2" y="5" width="20" height="14" rx="4"/><path d="M10 9l6 3-6 3z" fill="currentColor" stroke="none"/>' }
+      ].filter(soc => soc.url);
+      if(socials.length === 0){
+        socialRow.innerHTML = '';
+      } else {
+        socialRow.innerHTML = socials.map(soc =>
+          '<a href="'+esc(soc.url)+'" target="_blank" title="'+soc.label+'" style="width:44px; height:44px; border-radius:50%; background:var(--navy); display:flex; align-items:center; justify-content:center; color:#fff; text-decoration:none;">'
+          + '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">'+soc.icon+'</svg></a>'
+        ).join('');
+      }
+    }
     const liveBanner = document.getElementById('liveBanner');
     const liveContainer = document.getElementById('liveVideoContainer');
     const liveNote = document.getElementById('liveVideoNote');
@@ -878,6 +931,56 @@ async function loadGroups(){
     const listEl = document.getElementById('groupsList');
     listEl.innerHTML = (items && items.length) ? items.map(renderGroupCard).join('') : '<div class="card-desc">No groups listed yet.</div>';
   }catch(e){ console.error('groups load failed', e); }
+}
+
+/* --- Ministries: tap-to-expand, same plus-sign accordion pattern as Our Beliefs --- */
+function renderPlusAccordionRow(id, title, meta, expandedHtml){
+  return '<div class="group-card" onclick="togglePlusAccordion(\''+id+'\')" style="cursor:pointer;">'
+    + '<div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">'
+    + '<div><div class="g-title">'+esc(title)+'</div>'+(meta ? '<div class="g-meta">'+esc(meta)+'</div>' : '')+'</div>'
+    + '<div id="plus-icon-'+id+'" style="flex-shrink:0; width:22px; height:22px; border-radius:50%; border:1.5px solid #DCD5C4; display:flex; align-items:center; justify-content:center; font-size:15px; font-weight:700; color:var(--ink-soft); transition:transform .2s;">+</div>'
+    + '</div>'
+    + '<div class="g-desc" id="plus-body-'+id+'" style="display:none; margin-top:8px;">'+expandedHtml+'</div>'
+    + '</div>';
+}
+window.togglePlusAccordion = function(id){
+  const bodyEl = document.getElementById('plus-body-'+id);
+  const iconEl = document.getElementById('plus-icon-'+id);
+  const isOpen = bodyEl.style.display === 'block';
+  bodyEl.style.display = isOpen ? 'none' : 'block';
+  iconEl.style.transform = isOpen ? 'rotate(0deg)' : 'rotate(45deg)';
+};
+
+async function loadMinistries(){
+  try{
+    const { data: items, error } = await supabase.from('ministries').select('*').order('created_at', { ascending:true });
+    const listEl = document.getElementById('ministriesList');
+    if(error || !items || items.length === 0){
+      listEl.innerHTML = '<div class="card-desc">No ministries listed yet.</div>';
+      return;
+    }
+    listEl.innerHTML = items.map(m => {
+      let expanded = '<div style="margin-bottom:8px;">'+esc(m.description || 'No description yet.')+'</div>';
+      if(m.location) expanded += '<div style="font-size:12px; color:var(--ink-soft); margin-bottom:8px;">📍 '+esc(m.location)+'</div>';
+      if(m.learn_more_url) expanded += '<a href="'+esc(m.learn_more_url)+'" target="_blank" onclick="event.stopPropagation();" class="submit-btn" style="display:inline-block; text-decoration:none; padding:8px 16px; font-size:12.5px;">Learn more</a>';
+      return renderPlusAccordionRow('min-'+m.id, m.name, m.location || '', expanded);
+    }).join('');
+  }catch(e){ console.error('ministries load failed', e); }
+}
+
+async function loadBeliefs(){
+  try{
+    const { data: items, error } = await supabase.from('beliefs').select('*').order('order_num', { ascending:true });
+    const listEl = document.getElementById('beliefsList');
+    if(error || !items || items.length === 0){
+      listEl.innerHTML = '<div class="card-desc">No belief statements added yet.</div>';
+      return;
+    }
+    listEl.innerHTML = items.map(b => {
+      const expanded = '<div style="line-height:1.6;">'+esc(b.body || 'Statement coming soon.')+'</div>';
+      return renderPlusAccordionRow('bel-'+b.id, b.title, '', expanded);
+    }).join('');
+  }catch(e){ console.error('beliefs load failed', e); }
 }
 
 /* --- Event detail + sign-up form --- */
@@ -1166,6 +1269,8 @@ loadAnnouncements();
 loadSlideshow();
 loadPhotos();
 loadSignupsList();
+loadMinistries();
+loadBeliefs();
 
 /* --- PWA install + offline support ---
    These only activate for real once this file is hosted (HTTPS), alongside
