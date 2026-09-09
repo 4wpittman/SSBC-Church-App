@@ -452,6 +452,7 @@ window.openForm = function(key, editId, existingData){
     + '<button class="btn gold" onclick="saveItem(\''+key+'\')">Save</button> '
     + '<button class="btn ghost" onclick="closeForm(\''+key+'\')">Cancel</button>'
     + '<div class="status-msg" id="formStatus_'+key+'"></div></div>';
+  container.scrollIntoView({ behavior: 'smooth', block: 'center' });
 };
 window.closeForm = function(key){ document.getElementById('form-'+key).innerHTML = ''; };
 
