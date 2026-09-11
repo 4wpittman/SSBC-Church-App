@@ -65,6 +65,9 @@
   .photo-admin-item{position:relative; border-radius:10px; overflow:hidden; aspect-ratio:1; border:1px solid #E4DFD3;}
   .photo-admin-item img{width:100%; height:100%; object-fit:cover; display:block;}
   .photo-admin-item button{position:absolute; top:6px; right:6px; background:rgba(179,67,45,.9); color:#fff; border:none; border-radius:6px; padding:4px 8px; font-size:11px; cursor:pointer; font-family:inherit;}
+  .pending-photo-row{display:flex; gap:12px; align-items:center; background:var(--paper-dim); border-radius:12px; padding:10px 12px; margin-bottom:8px;}
+  .pending-photo-row img{width:48px; height:48px; border-radius:50%; object-fit:cover; flex-shrink:0;}
+  .pending-photo-row .ppr-name{font-weight:600; font-size:13.5px; flex:1;}
   .slide-admin-row{display:flex; gap:12px; align-items:center; background:#fff; border:1px solid #E4DFD3; border-radius:12px; padding:10px 12px; margin-bottom:8px;}
   .slide-admin-row .slide-thumb{width:64px; height:36px; object-fit:cover; border-radius:6px; flex-shrink:0; background:var(--paper-dim);}
   .slide-admin-row select{flex:1; min-width:0;}
@@ -151,6 +154,13 @@
             <div class="field"><label>Instagram URL</label><input id="s_instagramUrl" placeholder="https://instagram.com/yourchurch"></div>
           </div>
           <div class="field"><label>YouTube URL</label><input id="s_youtubeUrl" placeholder="https://youtube.com/@yourchurch"></div>
+          <div class="field">
+            <label>Send prayer requests to (email)</label>
+            <input id="s_prayerEmail" placeholder="prayerteam@yourchurch.org">
+          </div>
+          <div class="card-desc" style="font-size:12px; color:var(--ink-soft); margin-bottom:14px;">
+            This address is saved and ready to use — actually sending email needs a connected email service first (ask me when you're ready to set that up).
+          </div>
           <button class="btn gold" onclick="saveSettings()">Save</button>
           <div class="status-msg" id="settingsStatus"></div>
         </div>
@@ -205,6 +215,12 @@
 
       <div class="panel" id="panel-directory">
         <div class="panel-head"><h2>Directory</h2><button class="btn small gold" onclick="openForm('directory')">Add entry</button></div>
+
+        <div class="form-card" id="pendingPhotosCard" style="display:none;">
+          <h3>Photos waiting for approval</h3>
+          <div class="card-desc" style="color:var(--ink-soft); margin-bottom:12px;">Members can submit their own photo from the app. Nothing goes public until you approve it here.</div>
+          <div id="pendingPhotosGrid"></div>
+        </div>
 
         <div class="form-card">
           <h3>Bulk import from CSV</h3>
@@ -295,9 +311,9 @@ let mode = 'signin';
 
 const SCHEMAS = {
   sermons: [['title','Title','text'],['series','Series','text'],['speaker','Speaker','text'],['sermon_date','Date','date'],['duration','Duration (e.g. 18:42)','text'],['video_url','Facebook video link (optional \u2014 same link you used for Live works great after service)','text']],
-  events: [['title','Title','text'],['event_date','Date','date'],['time','Time (e.g. 10:45am)','text'],['location','Location','text'],['image_url','Header photo, 16:9 works best (optional)','file'],['signup_enabled','Enable sign-up sheet for this event','checkbox']],
-  leadership: [['name','Name','text'],['role','Role','text'],['bio','Bio','textarea'],['phone','Phone (optional)','text'],['initials','Initials (optional)','text'],['photo_url','Profile picture (optional)','file']],
-  deacons: [['name','Name','text'],['role','Role','text'],['phone','Phone','text'],['initials','Initials (optional)','text'],['photo_url','Profile picture (optional)','file']],
+  events: [['title','Title','text'],['event_date','Date','date'],['time','Time (e.g. 10:45am)','text'],['location','Location','text'],['image_url','Header photo, 16:9 works best (optional)','file'],['signup_enabled','Enable sign-up sheet for this event','checkbox'],['notify_email','Send sign-up notifications to (optional)','text']],
+  leadership: [['name','Name','text'],['role','Role','text'],['bio','Bio','textarea'],['phone','Phone (optional)','text'],['email','Email (optional)','text'],['initials','Initials (optional)','text'],['photo_url','Profile picture (optional)','file']],
+  deacons: [['name','Name','text'],['role','Role','text'],['phone','Phone','text'],['email','Email (optional)','text'],['initials','Initials (optional)','text'],['photo_url','Profile picture (optional)','file']],
   groups: [['title','Title','text'],['category',"Category (men/women/youth/young/senior)",'text'],['meta','Meets (e.g. Tuesdays, 6:00am · Fellowship Hall)','text'],['description','Description','textarea']],
   directory: [['name','Name','text'],['role','Role / note','text'],['phone','Phone (optional)','text'],['initials','Initials (optional)','text'],['photo_url','Profile picture (optional)','file'],['spouse_name','Spouse name (optional)','text'],['spouse_photo_url','Spouse profile picture (optional)','file'],['children','Children (optional — e.g. Emma, Jack, and Lily)','text']],
   verses: [['reference','Reference (e.g. John 3:16)','text']],
@@ -389,6 +405,7 @@ async function loadAllTables(){
   await renderPhotosAdmin();
   await renderSlidesAdmin();
   await loadSignupsEventOptions();
+  await renderPendingPhotos();
 }
 
 const FILE_BUCKETS = { leadership: 'profile-photos', deacons: 'profile-photos', directory: 'profile-photos', events: 'event-images' };
@@ -519,13 +536,20 @@ window.saveItem = async function(key){
       }
     }
 
-    statusEl.textContent = 'Saved.';
-    statusEl.className = 'status-msg ok';
+    let hasWarning = false;
+    if(key === 'sermons' && values.video_url && values.video_url.includes('/share/')){
+      statusEl.textContent = 'Saved — but that looks like a Facebook "share" link (/share/v/...), which usually won\'t play in the app. Open the video on its own page and copy that link instead (it should contain "/videos/").';
+      statusEl.className = 'status-msg err';
+      hasWarning = true;
+    } else {
+      statusEl.textContent = 'Saved.';
+      statusEl.className = 'status-msg ok';
+    }
     statusEl.style.display = 'block';
     renderTable(key);
     if(key === 'leadership' || key === 'deacons') renderTable('directory');
     if(key === 'events'){ loadSignupsEventOptions(); renderSlidesAdmin(); }
-    setTimeout(() => window.closeForm(key), 700);
+    if(!hasWarning) setTimeout(() => window.closeForm(key), 700);
   }catch(e){
     statusEl.textContent = 'Could not save — check you are signed in and try again.';
     statusEl.className = 'status-msg err';
@@ -549,9 +573,11 @@ async function loadSettingsForm(){
   document.getElementById('s_facebookUrl').value = s.facebook_url || '';
   document.getElementById('s_instagramUrl').value = s.instagram_url || '';
   document.getElementById('s_youtubeUrl').value = s.youtube_url || '';
+  document.getElementById('s_prayerEmail').value = s.prayer_notification_email || '';
 }
 window.saveSettings = async function(){
   const statusEl = document.getElementById('settingsStatus');
+  const liveVideoUrl = document.getElementById('s_liveVideoUrl').value.trim();
   try{
     const { error } = await supabase.from('settings').update({
       sunday_school_time: document.getElementById('s_sundaySchool').value.trim(),
@@ -562,15 +588,21 @@ window.saveSettings = async function(){
       is_live: document.getElementById('s_isLive').checked,
       live_title: document.getElementById('s_liveTitle').value.trim(),
       live_sub: document.getElementById('s_liveSub').value.trim(),
-      live_video_url: document.getElementById('s_liveVideoUrl').value.trim(),
+      live_video_url: liveVideoUrl,
       giving_url: document.getElementById('s_givingUrl').value.trim(),
       facebook_url: document.getElementById('s_facebookUrl').value.trim(),
       instagram_url: document.getElementById('s_instagramUrl').value.trim(),
-      youtube_url: document.getElementById('s_youtubeUrl').value.trim()
+      youtube_url: document.getElementById('s_youtubeUrl').value.trim(),
+      prayer_notification_email: document.getElementById('s_prayerEmail').value.trim()
     }).eq('id',1);
     if(error) throw error;
-    statusEl.textContent = 'Saved.';
-    statusEl.className = 'status-msg ok';
+    if(liveVideoUrl.includes('/share/')){
+      statusEl.textContent = 'Saved — but that looks like a Facebook "share" link (/share/v/...), which usually won\'t play in the app. Open the video on its own page and copy that link instead (it should contain "/videos/").';
+      statusEl.className = 'status-msg err';
+    } else {
+      statusEl.textContent = 'Saved.';
+      statusEl.className = 'status-msg ok';
+    }
     statusEl.style.display = 'block';
   }catch(e){
     statusEl.textContent = 'Could not save — check you are signed in and try again.';
@@ -877,6 +909,36 @@ window.deleteSignup = async function(id, eventId){
   if(!confirm('Delete this sign-up?')) return;
   await supabase.from('event_signups').delete().eq('id', id);
   loadSignupsForEvent(eventId);
+};
+
+/* --- Directory self-submitted photos: nothing goes public until approved --- */
+async function renderPendingPhotos(){
+  const { data: items, error } = await supabase.from('directory').select('*').not('pending_photo_url', 'is', null);
+  const card = document.getElementById('pendingPhotosCard');
+  const grid = document.getElementById('pendingPhotosGrid');
+  if(error || !items || items.length === 0){
+    card.style.display = 'none';
+    return;
+  }
+  card.style.display = 'block';
+  grid.innerHTML = items.map(p =>
+    '<div class="pending-photo-row"><img src="'+esc(p.pending_photo_url)+'">'
+    + '<div class="ppr-name">'+esc(p.name)+'</div>'
+    + '<button class="btn small gold" onclick="approvePendingPhoto(\''+p.id+'\')">Approve</button>'
+    + '<button class="btn small danger" onclick="rejectPendingPhoto(\''+p.id+'\')">Reject</button>'
+    + '</div>'
+  ).join('');
+}
+window.approvePendingPhoto = async function(id){
+  const { data: row } = await supabase.from('directory').select('pending_photo_url').eq('id', id).single();
+  if(!row) return;
+  await supabase.from('directory').update({ photo_url: row.pending_photo_url, pending_photo_url: null }).eq('id', id);
+  renderPendingPhotos();
+  renderTable('directory');
+};
+window.rejectPendingPhoto = async function(id){
+  await supabase.from('directory').update({ pending_photo_url: null }).eq('id', id);
+  renderPendingPhotos();
 };
 </script>
 </body>

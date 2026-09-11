@@ -751,7 +751,7 @@ function renderBioCard(p){
     + '<div><div class="bio-name">'+esc(p.name)+'</div><div class="bio-role">'+esc(p.role||'')+'</div><div class="bio-text">'+esc(p.bio||'')+'</div>'
     + (p.phone ? '<div class="person-contact" style="margin-top:4px;"><a href="tel:'+cleanPhone(p.phone)+'" style="color:inherit; text-decoration:none;">'+esc(p.phone)+'</a></div>' : '') + '</div></div>';
 }
-function renderPersonRow(p, withContact){
+function renderPersonRow(p, withContact, allowSelfUpload){
   const avatarContent = p.photo_url
     ? '<img src="'+esc(p.photo_url)+'" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">'
     : esc(p.initials||initials(p.name));
@@ -768,6 +768,12 @@ function renderPersonRow(p, withContact){
       familyHtml += '<div style="font-size:12px; color:var(--ink-soft);">Children: '+esc(p.children)+'</div>';
     }
     familyHtml += '</div>';
+  }
+  if(allowSelfUpload){
+    familyHtml += '<div style="margin-top:8px; width:100%;">'
+      + '<button onclick="event.stopPropagation(); promptSelfPhoto(\''+p.id+'\')" style="background:none; border:none; color:var(--brick); font-size:11.5px; font-weight:600; cursor:pointer; padding:0; font-family:inherit;">Is this you? Upload your photo</button>'
+      + '<span id="selfPhotoStatus-'+p.id+'" style="font-size:11px; color:var(--ink-soft); margin-left:6px;"></span>'
+      + '</div>';
   }
   return '<div class="person-row" style="flex-wrap:wrap; align-items:'+(familyHtml?'flex-start':'center')+';">'
     + '<div class="avatar" style="overflow:hidden; flex-shrink:0;">'+avatarContent+'</div>'
@@ -942,14 +948,38 @@ async function loadDirectory(){
     if(error) throw error;
     allDirectoryItems = items || [];
     const listEl = document.getElementById('directoryList');
-    listEl.innerHTML = allDirectoryItems.length ? allDirectoryItems.map(p=>renderPersonRow(p,true)).join('') : '<div class="card-desc">No directory entries yet.</div>';
+    listEl.innerHTML = allDirectoryItems.length ? allDirectoryItems.map(p=>renderPersonRow(p,true,true)).join('') : '<div class="card-desc">No directory entries yet.</div>';
   }catch(e){ console.error('directory load failed', e); }
 }
 window.filterDirectory = function(){
   const q = document.getElementById('directorySearchInput').value.trim().toLowerCase();
   const listEl = document.getElementById('directoryList');
   const filtered = q ? allDirectoryItems.filter(p => (p.name||'').toLowerCase().includes(q)) : allDirectoryItems;
-  listEl.innerHTML = filtered.length ? filtered.map(p=>renderPersonRow(p,true)).join('') : '<div class="card-desc">No matches found.</div>';
+  listEl.innerHTML = filtered.length ? filtered.map(p=>renderPersonRow(p,true,true)).join('') : '<div class="card-desc">No matches found.</div>';
+};
+
+window.promptSelfPhoto = function(directoryId){
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/*';
+  input.onchange = async () => {
+    const file = input.files[0];
+    if(!file) return;
+    const statusEl = document.getElementById('selfPhotoStatus-'+directoryId);
+    if(statusEl){ statusEl.textContent = 'Uploading...'; }
+    try{
+      const path = 'self-submitted/'+directoryId+'_'+Date.now()+'_'+file.name.replace(/[^a-zA-Z0-9.\-_]/g,'_');
+      const { error: upErr } = await supabase.storage.from('profile-photos').upload(path, file);
+      if(upErr) throw upErr;
+      const { data: pub } = supabase.storage.from('profile-photos').getPublicUrl(path);
+      const { error: dbErr } = await supabase.from('directory').update({ pending_photo_url: pub.publicUrl }).eq('id', directoryId);
+      if(dbErr) throw dbErr;
+      if(statusEl){ statusEl.textContent = 'Sent! A staff member will review it before it shows up.'; }
+    }catch(e){
+      if(statusEl){ statusEl.textContent = 'Something went wrong — please try again.'; }
+    }
+  };
+  input.click();
 };
 
 async function loadGroups(){
