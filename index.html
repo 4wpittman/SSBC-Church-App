@@ -335,6 +335,10 @@
             <svg class="qi-icon" viewBox="0 0 24 24" fill="none" stroke="#6E7F5C" stroke-width="1.8"><path d="M4 19.5V5.5A2.5 2.5 0 016.5 3H20v15.5H6.5A2.5 2.5 0 004 21h16"/></svg>
             <span class="qi-label">Our Beliefs</span><span class="qi-sub">What we teach</span>
           </button>
+          <button class="quick-item" onclick="openScreen('calendar')">
+            <svg class="qi-icon" viewBox="0 0 24 24" fill="none" stroke="#D9A441" stroke-width="1.8"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/><path d="M8 14h.01M12 14h.01M16 14h.01"/></svg>
+            <span class="qi-label">Calendar</span><span class="qi-sub">Full church calendar</span>
+          </button>
         </div>
       </div>
     </div>
@@ -512,6 +516,14 @@
       <div class="mini-header"><button class="back-btn" onclick="showTab('home')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg></button><h2>Our Beliefs</h2></div>
       <div class="section" style="padding-top:8px;">
         <div id="beliefsList"><div class="card-desc">Loading...</div></div>
+      </div>
+    </div>
+
+    <!-- CALENDAR -->
+    <div class="screen" id="screen-calendar">
+      <div class="mini-header"><button class="back-btn" onclick="showTab('home')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg></button><h2>Calendar</h2></div>
+      <div id="calendarFrameWrap" style="padding:0 20px 20px;">
+        <div class="card-desc" style="padding:20px;">Loading calendar...</div>
       </div>
     </div>
 
@@ -839,6 +851,15 @@ async function loadSettings(){
     document.getElementById('giveMailAddress').textContent = s.address_line || '—';
     if(s.address_line) currentAddress = s.address_line;
     if(s.giving_url) currentGivingUrl = s.giving_url;
+
+    const calWrap = document.getElementById('calendarFrameWrap');
+    if(calWrap){
+      if(s.google_calendar_url){
+        calWrap.innerHTML = '<iframe src="'+esc(normalizeUrl(s.google_calendar_url))+'" style="width:100%; height:70vh; border:none; border-radius:10px; background:#fff;" frameborder="0" scrolling="no"></iframe>';
+      } else {
+        calWrap.innerHTML = '<div class="card-desc" style="padding:20px;">The calendar hasn\'t been set up yet.</div>';
+      }
+    }
 
     const socialRow = document.getElementById('socialLinksRow');
     if(socialRow){
