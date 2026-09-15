@@ -439,6 +439,7 @@ async function renderTable(key){
       return '<td>'+esc(item[c])+'</td>';
     }).join('');
     return '<tr>'+cells+'<td class="actions">'
+      + (key === 'announcements' ? '<button class="btn small gold" onclick="createEventFromAnnouncement(\''+item.id.replace(/'/g,"\\'")+'\')">Create event</button>' : '')
       + '<button class="btn small ghost" onclick="editItem(\''+key+'\',\''+item.id+'\')">Edit</button>'
       + '<button class="btn small danger" onclick="deleteItem(\''+key+'\',\''+item.id+'\')">Delete</button>'
       + '</td></tr>';
@@ -948,6 +949,19 @@ window.approvePendingPhoto = async function(id){
 window.rejectPendingPhoto = async function(id){
   await supabase.from('directory').update({ pending_photo_url: null }).eq('id', id);
   renderPendingPhotos();
+};
+
+window.createEventFromAnnouncement = async function(announcementId){
+  const { data: a, error } = await supabase.from('announcements').select('*').eq('id', announcementId).single();
+  if(error || !a) return;
+  showPanel('events');
+  window.openForm('events', null, { title: a.title });
+  const statusEl = document.getElementById('formStatus_events');
+  if(statusEl){
+    statusEl.textContent = 'Title filled in from that announcement — add a date, time, and location, then save.';
+    statusEl.className = 'status-msg ok';
+    statusEl.style.display = 'block';
+  }
 };
 </script>
 </body>
