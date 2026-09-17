@@ -136,11 +136,14 @@
             <div class="field"><label>Live subtitle</label><input id="s_liveSub" placeholder="Tap to watch the service"></div>
           </div>
           <div class="field">
-            <label>Facebook Live video link</label>
-            <input id="s_liveVideoUrl" placeholder="https://www.facebook.com/yourchurch/videos/123456789">
+            <label>Live video link (Facebook or YouTube)</label>
+            <input id="s_liveVideoUrl" placeholder="https://youtube.com/watch?v=... or a Facebook video link">
           </div>
           <div class="card-desc" style="font-size:12px; color:var(--ink-soft); margin-bottom:14px;">
-            When you go live on Facebook, open that post, click the three dots → Copy Link, and paste it here along with checking "Show Live now banner." The app will play the actual video, not just link out to Facebook.
+            YouTube links tend to be more reliable than Facebook's — Facebook can block embedding if a Page has certain privacy/restriction settings on, which is outside anyone's control here. If Facebook video isn't showing up in the app, try streaming to YouTube instead (or in addition) and use that link.
+          </div>
+          <div class="card-desc" style="font-size:12px; color:var(--ink-soft); margin-bottom:14px;">
+            For Facebook: open the video post, click the three dots → Copy Link (make sure it contains "/videos/", not "/share/"). For YouTube: copy the link directly from the video or livestream page.
           </div>
           <div class="field">
             <label>Giving link (any provider)</label>
@@ -317,7 +320,7 @@ const supabase = createClient(supabaseConfig.url, supabaseConfig.anonKey);
 let mode = 'signin';
 
 const SCHEMAS = {
-  sermons: [['title','Title','text'],['series','Series','text'],['speaker','Speaker','text'],['sermon_date','Date','date'],['duration','Duration (e.g. 18:42)','text'],['video_url','Facebook video link (optional \u2014 same link you used for Live works great after service)','text']],
+  sermons: [['title','Title','text'],['series','Series','text'],['speaker','Speaker','text'],['sermon_date','Date','date'],['duration','Duration (e.g. 18:42)','text'],['video_url','Video link \u2014 Facebook or YouTube (optional)','text']],
   events: [['title','Title','text'],['event_date','Date','date'],['time','Time (e.g. 10:45am)','text'],['location','Location','text'],['image_url','Header photo, 16:9 works best (optional)','file'],['signup_enabled','Enable sign-up sheet for this event','checkbox'],['notify_email','Send sign-up notifications to (optional)','text']],
   leadership: [['name','Name','text'],['role','Role','text'],['bio','Bio','textarea'],['phone','Phone (optional)','text'],['email','Email (optional)','text'],['initials','Initials (optional)','text'],['photo_url','Profile picture (optional)','file']],
   deacons: [['name','Name','text'],['role','Role','text'],['phone','Phone','text'],['email','Email (optional)','text'],['initials','Initials (optional)','text'],['photo_url','Profile picture (optional)','file']],

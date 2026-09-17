@@ -773,10 +773,7 @@ window.toggleSermonVideo = function(containerId, sermonId){
   }
   const url = sermonVideoUrls[sermonId];
   if(!url) return;
-  const encoded = encodeURIComponent(normalizeUrl(url));
-  container.innerHTML = '<iframe src="https://www.facebook.com/plugins/video.php?href='+encoded+'&show_text=false" '
-    + 'style="width:100%; height:100%; border:none; overflow:hidden;" scrolling="no" frameborder="0" '
-    + 'allowfullscreen="true" allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"></iframe>';
+  container.innerHTML = buildVideoEmbedHtml(url);
   container.style.display = 'block';
 };
 function renderBioCard(p){
@@ -851,6 +848,27 @@ function normalizeUrl(url){
   return 'https://' + trimmed;
 }
 
+// Builds an embeddable <iframe> for either a YouTube or Facebook video link,
+// auto-detecting which platform the URL belongs to. YouTube embeds are
+// generally far more reliable than Facebook's, which can be blocked by a
+// Page's own privacy/restriction settings outside anyone's control here.
+function buildVideoEmbedHtml(rawUrl, extraStyle){
+  const url = normalizeUrl(rawUrl);
+  const style = 'width:100%; height:100%; border:none; overflow:hidden;' + (extraStyle||'');
+  const ytMatch = url.match(/(?:youtube\.com\/(?:watch\?v=|live\/|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{6,})/i);
+  if(ytMatch){
+    const videoId = ytMatch[1];
+    return '<iframe src="https://www.youtube.com/embed/'+videoId+'?autoplay=0" '
+      + 'style="'+style+'" frameborder="0" '
+      + 'allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" '
+      + 'allowfullscreen="true"></iframe>';
+  }
+  const encoded = encodeURIComponent(url);
+  return '<iframe src="https://www.facebook.com/plugins/video.php?href='+encoded+'&show_text=false" '
+    + 'style="'+style+'" scrolling="no" frameborder="0" '
+    + 'allowfullscreen="true" allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"></iframe>';
+}
+
 let currentGivingUrl = '';
 window.openGivingLink = function(){
   if(currentGivingUrl){
@@ -912,12 +930,9 @@ async function loadSettings(){
       liveBanner.style.display = 'none';
     }
     if(s.is_live && s.live_video_url){
-      const encoded = encodeURIComponent(normalizeUrl(s.live_video_url));
       liveContainer.innerHTML = '<div style="margin:18px 20px 0; border-radius:8px 8px 20px 20px; overflow:hidden; aspect-ratio:16/9; background:var(--navy-deep);">'
-        + '<iframe src="https://www.facebook.com/plugins/video.php?href='+encoded+'&show_text=false" '
-        + 'style="width:100%; height:100%; border:none; overflow:hidden;" scrolling="no" frameborder="0" '
-        + 'allowfullscreen="true" allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"></iframe></div>';
-      liveNote.textContent = 'Watching live from Facebook. If the video doesn\'t load, it may still be starting up on Facebook\'s end — give it a moment.';
+        + buildVideoEmbedHtml(s.live_video_url) + '</div>';
+      liveNote.textContent = 'Watching live. If the video doesn\'t load right away, it may still be starting up — give it a moment.';
     } else {
       liveContainer.innerHTML = '<div class="video-frame">'
         + '<svg viewBox="0 0 24 24" fill="none" stroke="#C9BFF0" stroke-width="1.6"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M10 9.5v5l4-2.5z" fill="#C9BFF0" stroke="none"/></svg>'
