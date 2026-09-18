@@ -274,11 +274,15 @@
         <div class="form-card">
           <h3>Slideshow slides</h3>
           <div class="card-desc" style="color:var(--ink-soft); margin-bottom:12px;">Drop one or more PDFs/images here — they'll play in the app as a slideshow, changing every 5 seconds. Optionally link any slide to an event, so tapping it opens that event's page.</div>
+          <div class="card-desc" style="color:var(--brick); margin-bottom:12px; font-weight:600;">New slides are added alongside existing ones, not swapped in — use "Clear all slides" below before uploading a new week's deck.</div>
           <div id="slidesDropZone" class="slides-dropzone" onclick="document.getElementById('slidesFileInput').click()">
             <div id="slidesDropText">Drag PDFs or images here, or click to browse (you can select multiple)</div>
           </div>
           <input type="file" id="slidesFileInput" accept="application/pdf,image/*" multiple style="display:none;" onchange="handleSlidesFiles(this.files)">
           <div class="status-msg" id="slidesUploadStatus"></div>
+          <div style="margin-top:12px;">
+            <button class="btn small danger" onclick="clearAllSlides()">Clear all slides (<span id="slidesCountLabel">0</span>)</button>
+          </div>
           <div id="slidesAdminGrid" style="margin-top:16px;"></div>
         </div>
 
@@ -727,6 +731,19 @@ function extensionForFile(file){
 window.handleSlidesFiles = async function(fileList){
   const files = Array.from(fileList || []);
   if(files.length === 0) return;
+
+  const { count: existingCount } = await supabase.from('announcement_slides').select('*', { count: 'exact', head: true });
+  if(existingCount && existingCount > 0){
+    const replace = confirm(
+      'You have '+existingCount+' existing slide(s).\n\n'
+      + 'Click OK to DELETE them and replace with these '+files.length+' new file(s).\n'
+      + 'Click Cancel to add these as additional slides alongside the existing ones.'
+    );
+    if(replace){
+      await clearAllSlides(true);
+    }
+  }
+
   const statusEl = document.getElementById('slidesUploadStatus');
   statusEl.className = 'status-msg ok';
   statusEl.style.display = 'block';
@@ -756,10 +773,29 @@ window.handleSlidesFiles = async function(fileList){
   renderSlidesAdmin();
 };
 
+window.clearAllSlides = async function(skipConfirm){
+  const { data: slides } = await supabase.from('announcement_slides').select('id,url');
+  if(!slides || slides.length === 0){
+    if(!skipConfirm) alert('There are no slides to clear.');
+    return;
+  }
+  if(!skipConfirm && !confirm('Delete all '+slides.length+' current slide(s)? This can\'t be undone.')) return;
+
+  const paths = slides.map(s => {
+    const m = s.url.match(/announcement-slides\/(.+)$/);
+    return m ? decodeURIComponent(m[1]) : null;
+  }).filter(Boolean);
+  if(paths.length) await supabase.storage.from('announcement-slides').remove(paths);
+  await supabase.from('announcement_slides').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+  renderSlidesAdmin();
+};
+
 async function renderSlidesAdmin(){
   const { data: slides, error } = await supabase.from('announcement_slides').select('*').order('created_at', { ascending:true });
   const { data: events } = await supabase.from('events').select('id,title').order('event_date', { ascending:false });
   const grid = document.getElementById('slidesAdminGrid');
+  const countLabel = document.getElementById('slidesCountLabel');
+  if(countLabel) countLabel.textContent = (slides||[]).length;
   if(error || !slides || slides.length === 0){
     grid.innerHTML = '<div class="empty-note">No slides uploaded yet.</div>';
     return;
