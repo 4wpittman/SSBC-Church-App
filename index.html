@@ -1539,7 +1539,7 @@ async function loadChatRooms(){
     let rooms = [{ id:'general', label:'General' }];
     (groups||[]).forEach(g => rooms.push({ id:g.id, label:g.title }));
     listEl.innerHTML = rooms.map(r =>
-      '<div class="chat-room-item" onclick="openChatRoom(\''+r.id+'\', '+JSON.stringify(r.label)+')">'
+      '<div class="chat-room-item" onclick="openChatRoom(\''+r.id+'\', '+JSON.stringify(r.label).replace(/&/g,'&amp;').replace(/"/g,'&quot;')+')">'
       + '<div style="font-weight:600; font-size:14px;">'+esc(r.label)+'</div>'
       + '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#A79F8E" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>'
       + '</div>'
