@@ -144,7 +144,7 @@
             YouTube links tend to be more reliable than Facebook's — Facebook can block embedding if a Page has certain privacy/restriction settings on, which is outside anyone's control here. If Facebook video isn't showing up in the app, try streaming to YouTube instead (or in addition) and use that link.
           </div>
           <div class="card-desc" style="font-size:12px; color:var(--ink-soft); margin-bottom:14px;">
-            For Facebook: open the video post, click the three dots → Copy Link (make sure it contains "/videos/", not "/share/"). For YouTube: copy the link directly from the video or livestream page.
+            For Facebook: open the live video on its own page and copy the link from the address bar. Phone share sheets sometimes produce short fb.watch links — those won't embed, so grab the full link instead (it should contain "/videos/"). Share-style links (/share/v/...) are converted automatically. For YouTube: copy the link directly from the video or livestream page.
           </div>
           <div class="field">
             <label>Giving link (any provider)</label>
@@ -163,7 +163,7 @@
             <input id="s_prayerEmail" placeholder="prayerteam@yourchurch.org">
           </div>
           <div class="card-desc" style="font-size:12px; color:var(--ink-soft); margin-bottom:14px;">
-            This address is saved and ready to use — actually sending email needs a connected email service first (ask me when you're ready to set that up).
+            This address is saved and ready to use — prayer requests are emailed here automatically once the send-notification email function is set up (see EMAIL_SETUP.md in the repo for the steps).
           </div>
           <div class="field">
             <label>Google Calendar embed link</label>
@@ -418,6 +418,33 @@ supabase.auth.onAuthStateChange((event, session) => {
   }
 });
 
+/* Compresses images before upload so phone photos (often 5–10MB) don't
+   slow the app to a crawl. PDFs and already-small images pass through untouched. */
+async function compressImage(file, maxDim, quality){
+  maxDim = maxDim || 1600;
+  quality = quality || 0.82;
+  if(!file || !file.type || file.type.indexOf('image/') !== 0) return file;
+  try{
+    const bitmap = await createImageBitmap(file);
+    const longest = Math.max(bitmap.width, bitmap.height);
+    if(longest <= maxDim && file.size < 600*1024) return file;
+    const scale = Math.min(1, maxDim / longest);
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+    canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    if(bitmap.close) bitmap.close();
+    const blob = await new Promise(function(res){ canvas.toBlob(res, 'image/jpeg', quality); });
+    if(!blob) return file;
+    const baseName = (file.name || 'photo').replace(/\.[a-zA-Z0-9]+$/, '').replace(/[^a-zA-Z0-9.\-_]/g, '_');
+    return new File([blob], baseName + '.jpg', { type: 'image/jpeg' });
+  }catch(e){
+    return file; // if anything goes wrong, upload the original
+  }
+}
 function esc(s){ const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
 
 async function loadAllTables(){
@@ -487,6 +514,9 @@ window.openForm = function(key, editId, existingData){
     extraHtml = '<div class="field"><label><input type="checkbox" id="f_'+key+'_alsoDirectory" style="width:auto; margin-right:6px;">Also list this person in the Church Directory</label>'
       + '<div style="font-size:11.5px; color:var(--ink-soft); margin-top:4px;">Adds a new Directory entry each time this is checked and saved — leave it unchecked when editing someone already listed there, to avoid duplicates.</div></div>';
   }
+  if(key === 'directory'){
+    extraHtml += '<div class="card-desc" style="color:var(--ink-soft); margin-top:10px;">Heads up: the directory is visible to anyone with the app link — only add details the person is comfortable sharing publicly.</div>';
+  }
   container.innerHTML = '<div class="form-card"><h3>'+(editId ? 'Edit' : 'Add new')+'</h3>'
     + fieldsHtml
     + extraHtml
@@ -516,8 +546,9 @@ window.saveItem = async function(key){
     for(const [k,,type] of schema){
       if(type === 'file'){
         const fileInput = document.getElementById('f_'+key+'_'+k);
-        const file = fileInput.files[0];
-        if(file){
+        const rawFile = fileInput.files[0];
+        if(rawFile){
+          const file = await compressImage(rawFile);
           const path = key+'/'+k+'_'+Date.now()+'_'+file.name.replace(/[^a-zA-Z0-9.\-_]/g,'_');
           const bucket = FILE_BUCKETS[key] || 'profile-photos';
           const { error: upErr } = await supabase.storage.from(bucket).upload(path, file);
@@ -622,8 +653,8 @@ window.saveSettings = async function(){
       google_calendar_url: document.getElementById('s_calendarUrl').value.trim()
     }).eq('id',1);
     if(error) throw error;
-    if(liveVideoUrl.includes('/share/')){
-      statusEl.textContent = 'Saved — but that looks like a Facebook "share" link (/share/v/...), which usually won\'t play in the app. Open the video on its own page and copy that link instead (it should contain "/videos/").';
+    if(liveVideoUrl.includes('fb.watch')){
+      statusEl.textContent = 'Saved — but that looks like a shortened fb.watch link, which won\'t play in the app. Open the video on its own page and copy the full link from the address bar instead (it should contain "/videos/").';
       statusEl.className = 'status-msg err';
     } else {
       statusEl.textContent = 'Saved.';
@@ -678,7 +709,8 @@ window.uploadPhoto = async function(){
   const fileInput = document.getElementById('photoFileInput');
   const caption = document.getElementById('photoCaptionInput').value.trim();
   const statusEl = document.getElementById('photoUploadStatus');
-  const file = fileInput.files[0];
+  const rawPhoto = fileInput.files[0];
+  const file = rawPhoto ? await compressImage(rawPhoto) : null;
   if(!file){
     statusEl.textContent = 'Choose an image file first.';
     statusEl.className = 'status-msg err';
@@ -763,8 +795,10 @@ window.handleSlidesFiles = async function(fileList){
     if(!ext){ failed++; continue; }
     statusEl.textContent = 'Uploading '+(uploaded+failed+1)+' of '+files.length+'...';
     try{
-      const path = Date.now()+'_'+Math.random().toString(36).slice(2)+'.'+ext;
-      const { error: upErr } = await supabase.storage.from('announcement-slides').upload(path, file);
+      const uploadFile = await compressImage(file);
+      const upExt = uploadFile.type === 'image/jpeg' ? 'jpg' : ext;
+      const path = Date.now()+'_'+Math.random().toString(36).slice(2)+'.'+upExt;
+      const { error: upErr } = await supabase.storage.from('announcement-slides').upload(path, uploadFile);
       if(upErr) throw upErr;
       const { data: pub } = supabase.storage.from('announcement-slides').getPublicUrl(path);
       const { error: dbErr } = await supabase.from('announcement_slides').insert({
