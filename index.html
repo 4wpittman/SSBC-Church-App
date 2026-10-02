@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Smiths Station Baptist Church</title>
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icon-192.png" type="image/png">
@@ -90,8 +90,6 @@
   .play-row{display:flex; align-items:center; gap:10px;}
   .play-btn{width:38px; height:38px; border-radius:50%; background:var(--navy); border:none; display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0;}
   .play-btn svg{width:14px; height:14px;}
-  .track{flex:1; height:4px; background:#E9E4D6; border-radius:2px; position:relative;}
-  .track::after{content:"";position:absolute;left:0;top:0;height:100%;width:35%;background:var(--gold);border-radius:2px;}
   .dur{font-size:11.5px; color:var(--ink-soft); flex-shrink:0;}
 
   .quick-grid{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
@@ -100,6 +98,8 @@
   .quick-item .qi-label{font-size:13.5px; font-weight:600; margin-top:8px; display:block;}
   .quick-item .qi-sub{font-size:11.5px; color:var(--ink-soft); margin-top:2px; display:block;}
   .qi-icon{width:22px; height:22px;}
+  #quickGrid .qa-extra{display:none;}
+  #quickGrid.expanded .qa-extra{display:block;}
 
   .event-row{display:flex; gap:14px; background:#fff; border:1px solid rgba(27,22,64,.07); border-radius:16px 16px 8px 8px; padding:14px; margin-bottom:10px; align-items:flex-start; box-shadow:var(--shadow-sm);}
   .event-image-16x9{width:100%; aspect-ratio:16/9; object-fit:cover; display:block; border-radius:10px 10px 0 0;}
@@ -142,6 +142,9 @@
   .field textarea{min-height:90px;}
   .submit-btn{width:100%; background:var(--navy); color:#fff; border:none; padding:13px; border-radius:8px; font-size:14.5px; font-weight:700; font-family:inherit; cursor:pointer; margin-top:4px; transition:transform .1s ease;}
   .submit-btn:active{transform:scale(.97);}
+  .btn{background:var(--navy); color:#fff; border:none; padding:11px 16px; border-radius:8px; font-size:14px; font-weight:700; font-family:inherit; cursor:pointer;}
+  .btn.gold{background:var(--gold); color:var(--navy-deep);}
+  .btn.ghost{background:none; color:var(--navy); border:1px solid rgba(27,22,64,.12);}
   .confirm-msg{display:none; background:#EEF0E8; border:1px solid #D6DECA; color:var(--sage); font-size:13px; font-weight:600; padding:12px 14px; border-radius:10px; margin-top:12px;}
 
   .info-block{background:#fff; border:1px solid rgba(27,22,64,.07); border-radius:16px 16px 8px 8px; padding:16px; margin-bottom:14px; box-shadow:var(--shadow-sm);}
@@ -319,7 +322,7 @@
 
       <div class="section">
         <div class="section-head"><h2>Quick actions</h2></div>
-        <div class="quick-grid">
+        <div class="quick-grid" id="quickGrid">
           <button class="quick-item" onclick="openScreen('give')">
             <svg class="qi-icon" viewBox="0 0 24 24" fill="none" stroke="#8B4A3B" stroke-width="1.8"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
             <span class="qi-label">Give</span><span class="qi-sub">Support the church</span>
@@ -336,45 +339,46 @@
             <svg class="qi-icon" viewBox="0 0 24 24" fill="none" stroke="#1C2B4A" stroke-width="1.8"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
             <span class="qi-label">Connect groups</span><span class="qi-sub">Find a small group</span>
           </button>
-          <button class="quick-item" onclick="openScreen('directory')">
+          <button class="quick-item qa-extra" onclick="openScreen('directory')">
             <svg class="qi-icon" viewBox="0 0 24 24" fill="none" stroke="#6E7F5C" stroke-width="1.8"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 20c0-3.6 2.5-6 5.5-6s5.5 2.4 5.5 6"/><circle cx="17.5" cy="9" r="2.3"/><path d="M15.5 13.5c2.4.3 4 2.2 4 6.5"/></svg>
             <span class="qi-label">Church directory</span><span class="qi-sub">Find a member</span>
           </button>
-          <button class="quick-item" onclick="openScreen('deacons')">
+          <button class="quick-item qa-extra" onclick="openScreen('deacons')">
             <svg class="qi-icon" viewBox="0 0 24 24" fill="none" stroke="#8B4A3B" stroke-width="1.8"><path d="M12 2l7 3v6c0 5-3.4 8.4-7 11-3.6-2.6-7-6-7-11V5z"/></svg>
             <span class="qi-label">Deacon list</span><span class="qi-sub">Care &amp; contacts</span>
           </button>
-          <button class="quick-item" onclick="openScreen('bible')">
+          <button class="quick-item qa-extra" onclick="openScreen('bible')">
             <svg class="qi-icon" viewBox="0 0 24 24" fill="none" stroke="#6E7F5C" stroke-width="1.8"><path d="M4 19.5V5.5A2.5 2.5 0 016.5 3H20v15.5H6.5A2.5 2.5 0 004 21h16"/></svg>
             <span class="qi-label">Read the Bible</span><span class="qi-sub">Look up any verse</span>
           </button>
-          <button class="quick-item" onclick="openScreen('announcements')">
+          <button class="quick-item qa-extra" onclick="openScreen('announcements')">
             <svg class="qi-icon" viewBox="0 0 24 24" fill="none" stroke="#D9A441" stroke-width="1.8"><path d="M3 11l18-5v14L3 15v-4z"/><path d="M7 15.5V19a2 2 0 002 2h1"/></svg>
             <span class="qi-label">Announcements</span><span class="qi-sub">What's happening</span>
           </button>
-          <button class="quick-item" onclick="openScreen('photos')">
+          <button class="quick-item qa-extra" onclick="openScreen('photos')">
             <svg class="qi-icon" viewBox="0 0 24 24" fill="none" stroke="#1C2B4A" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5.5-5.5L3 20"/></svg>
             <span class="qi-label">Photos</span><span class="qi-sub">Church life</span>
           </button>
-          <button class="quick-item" onclick="openScreen('signups')">
+          <button class="quick-item qa-extra" onclick="openScreen('signups')">
             <svg class="qi-icon" viewBox="0 0 24 24" fill="none" stroke="#8B4A3B" stroke-width="1.8"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
             <span class="qi-label">Sign Up</span><span class="qi-sub">RSVP for events</span>
           </button>
-          <button class="quick-item" onclick="openScreen('beliefs')">
+          <button class="quick-item qa-extra" onclick="openScreen('beliefs')">
             <svg class="qi-icon" viewBox="0 0 24 24" fill="none" stroke="#6E7F5C" stroke-width="1.8"><path d="M4 19.5V5.5A2.5 2.5 0 016.5 3H20v15.5H6.5A2.5 2.5 0 004 21h16"/></svg>
             <span class="qi-label">Our Beliefs</span><span class="qi-sub">What we teach</span>
           </button>
-          <button class="quick-item" onclick="openScreen('calendar')">
+          <button class="quick-item qa-extra" onclick="openScreen('calendar')">
             <svg class="qi-icon" viewBox="0 0 24 24" fill="none" stroke="#D9A441" stroke-width="1.8"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/><path d="M8 14h.01M12 14h.01M16 14h.01"/></svg>
             <span class="qi-label">Calendar</span><span class="qi-sub">Full church calendar</span>
           </button>
         </div>
+        <button id="moreActionsBtn" class="btn ghost" style="width:100%; margin-top:10px;" onclick="toggleQuickActions()">Show more ↓</button>
       </div>
     </div>
 
     <!-- SERMONS -->
     <div class="screen" id="screen-sermons">
-      <div class="mini-header" style="justify-content:flex-end;"><button class="back-btn" onclick="showTab('home')" title="Home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg></button></div>
+      <div class="mini-header"><button class="back-btn" onclick="showTab('home')" title="Home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg></button><h2>Sermons</h2></div>
       <div class="section" style="padding-top:4px;">
         <div class="section-head"><h2>Latest message</h2></div>
         <div id="sermonsLatestFeature">
@@ -391,7 +395,7 @@
 
     <!-- EVENTS -->
     <div class="screen" id="screen-events">
-      <div class="mini-header" style="justify-content:flex-end;"><button class="back-btn" onclick="showTab('home')" title="Home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg></button></div>
+      <div class="mini-header"><button class="back-btn" onclick="showTab('home')" title="Home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg></button><h2>Events</h2></div>
       <div class="section" style="padding-top:4px;">
         <div class="section-head"><h2>This week</h2></div>
         <div id="eventsNextFeature">
@@ -430,13 +434,14 @@
 
     <!-- CONNECT -->
     <div class="screen" id="screen-connect">
-      <div class="mini-header" style="justify-content:flex-end;"><button class="back-btn" onclick="showTab('home')" title="Home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg></button></div>
+      <div class="mini-header"><button class="back-btn" onclick="showTab('home')" title="Home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg></button><h2>Connect</h2></div>
       <div class="section" style="padding-top:4px;">
         <div class="section-head"><h2>Prayer request</h2></div>
         <div class="arch-card">
           <div class="field"><label>Your name</label><input type="text" id="prayerName" placeholder="Jane Smith"></div>
           <div class="field"><label>Your request</label><textarea id="prayerText" placeholder="Share what's on your heart..."></textarea></div>
           <div class="field"><label>Keep this private to the prayer team?</label><select id="prayerPrivacy"><option value="private">Yes, keep it private</option><option value="shareable">It's okay to share with the church family</option></select></div>
+          <div style="position:absolute; left:-9999px; top:auto; width:1px; height:1px; overflow:hidden;" aria-hidden="true"><input type="text" id="prayerWebsite" tabindex="-1" autocomplete="off"></div>
           <button class="submit-btn" id="prayerSubmitBtn" onclick="submitPrayer()">Send request</button>
           <div class="confirm-msg" id="prayerConfirm">Thank you — our prayer team will be praying for you this week.</div>
         </div>
@@ -510,7 +515,7 @@
         <div id="directoryList">
           <div class="card-desc">Loading...</div>
         </div>
-        <div class="card-desc" style="margin-top:8px;">This directory is public in this prototype. A real member directory should be restricted to logged-in members only — worth keeping in mind before launch.</div>
+        <div class="card-desc" style="margin-top:8px;">Members choose what to share here — only the details listed are visible, and nothing is added without someone's say-so.</div>
       </div>
     </div>
 
@@ -699,11 +704,33 @@ function selectAmt(el){
   var val = el.textContent.trim();
   btn.textContent = (val === 'Other') ? 'Continue' : ('Give ' + val + ' now');
 }
+function prayerCooldownRemaining(){
+  try{
+    const last = parseInt(localStorage.getItem('ssbc_prayer_last') || '0', 10);
+    const wait = 60000 - (Date.now() - last);
+    return wait > 0 ? Math.ceil(wait / 1000) : 0;
+  }catch(e){ return 0; }
+}
 async function submitPrayer(){
   const name = document.getElementById('prayerName').value.trim();
   const text = document.getElementById('prayerText').value.trim();
   const privacySel = document.getElementById('prayerPrivacy').value;
   if(!text){ return; }
+  // Honeypot: bots fill hidden fields; humans can't see this one.
+  // Fake a success and send nothing.
+  if(document.getElementById('prayerWebsite').value){
+    document.getElementById('prayerName').value = '';
+    document.getElementById('prayerText').value = '';
+    document.getElementById('prayerConfirm').style.display = 'block';
+    return;
+  }
+  // One request per minute per device — stops casual hammering of the
+  // button (and the notification emails behind it).
+  const waitSecs = prayerCooldownRemaining();
+  if(waitSecs > 0){
+    alert('Thanks — your request was just sent. Please wait ' + waitSecs + ' seconds before sending another.');
+    return;
+  }
   const btn = document.getElementById('prayerSubmitBtn');
   btn.disabled = true;
   btn.textContent = 'Sending...';
@@ -715,6 +742,7 @@ async function submitPrayer(){
       handled: false
     });
     if(error) throw error;
+    try{ localStorage.setItem('ssbc_prayer_last', String(Date.now())); }catch(e){}
     document.getElementById('prayerName').value = '';
     document.getElementById('prayerText').value = '';
     document.getElementById('prayerConfirm').style.display = 'block';
@@ -738,6 +766,11 @@ window.openScreen = openScreen;
 window.selectAmt = selectAmt;
 window.submitPrayer = submitPrayer;
 window.filterGroups = filterGroups;
+window.toggleQuickActions = function(){
+  const grid = document.getElementById('quickGrid');
+  const expanded = grid.classList.toggle('expanded');
+  document.getElementById('moreActionsBtn').textContent = expanded ? 'Show less ↑' : 'Show more ↓';
+};
 
 (function(){
   var h = new Date().getHours();
@@ -768,6 +801,33 @@ function esc(s){
   d.textContent = s || '';
   return d.innerHTML;
 }
+/* Compresses images before upload so phone photos (often 5–10MB) don't
+   slow the app to a crawl. PDFs and already-small images pass through untouched. */
+async function compressImage(file, maxDim, quality){
+  maxDim = maxDim || 1600;
+  quality = quality || 0.82;
+  if(!file || !file.type || file.type.indexOf('image/') !== 0) return file;
+  try{
+    const bitmap = await createImageBitmap(file);
+    const longest = Math.max(bitmap.width, bitmap.height);
+    if(longest <= maxDim && file.size < 600*1024) return file;
+    const scale = Math.min(1, maxDim / longest);
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+    canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    if(bitmap.close) bitmap.close();
+    const blob = await new Promise(function(res){ canvas.toBlob(res, 'image/jpeg', quality); });
+    if(!blob) return file;
+    const baseName = (file.name || 'photo').replace(/\.[a-zA-Z0-9]+$/, '').replace(/[^a-zA-Z0-9.\-_]/g, '_');
+    return new File([blob], baseName + '.jpg', { type: 'image/jpeg' });
+  }catch(e){
+    return file; // if anything goes wrong, upload the original
+  }
+}
 function cleanPhone(phone){
   return (phone || '').replace(/[^\d+]/g, '');
 }
@@ -791,7 +851,7 @@ function renderSermonCard(s, context){
     : "alert('No video linked to this sermon yet.')";
   return '<div class="arch-card"><span class="tag sermon">'+esc(s.series||'Sermon')+'</span>'
     + '<div class="card-title">'+esc(s.title)+'</div><div class="card-meta">'+esc(s.speaker||'')+' · '+esc(formatDisplay(s.sermon_date))+'</div>'
-    + '<div class="play-row"><button class="play-btn" onclick="'+playAction+'"><svg viewBox="0 0 24 24" fill="#F8F6F1"><path d="M8 5v14l11-7z"/></svg></button><div class="track"></div><div class="dur">'+esc(s.duration||'')+'</div></div>'
+    + '<div class="play-row"><button class="play-btn" onclick="'+playAction+'"><svg viewBox="0 0 24 24" fill="#F8F6F1"><path d="M8 5v14l11-7z"/></svg></button><div class="dur">'+esc(s.duration||'')+'</div></div>'
     + '<div id="'+containerId+'" style="display:none; margin-top:12px; border-radius:10px; overflow:hidden; aspect-ratio:16/9; background:var(--navy-deep);"></div>'
     + '</div>';
 }
@@ -881,6 +941,17 @@ function normalizeUrl(url){
   return 'https://' + trimmed;
 }
 
+// Facebook live links get copied in a half-dozen shapes (share sheets on phones
+// give /share/v/ links, watch URLs carry ?v=, etc.). The video plugin is picky,
+// so pull the numeric video id out of any of them and hand the plugin the one
+// canonical shape it reliably accepts.
+function canonicalFacebookVideoUrl(url){
+  const m = url.match(/facebook\.com\/(?:[^?#]*\/videos\/|share\/v\/|watch\/live\/|watch\/\?[^#]*v=)(\d+)/i)
+         || url.match(/[?&]v=(\d{6,})/i);
+  if(m) return 'https://www.facebook.com/watch/?v=' + m[1];
+  return url;
+}
+
 // Builds an embeddable <iframe> for either a YouTube or Facebook video link,
 // auto-detecting which platform the URL belongs to. YouTube embeds are
 // generally far more reliable than Facebook's, which can be blocked by a
@@ -896,7 +967,7 @@ function buildVideoEmbedHtml(rawUrl, extraStyle){
       + 'allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" '
       + 'allowfullscreen="true"></iframe>';
   }
-  const encoded = encodeURIComponent(url);
+  const encoded = encodeURIComponent(canonicalFacebookVideoUrl(url));
   return '<iframe src="https://www.facebook.com/plugins/video.php?href='+encoded+'&show_text=false" '
     + 'style="'+style+'" scrolling="no" frameborder="0" '
     + 'allowfullscreen="true" allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"></iframe>';
@@ -963,8 +1034,11 @@ async function loadSettings(){
       liveBanner.style.display = 'none';
     }
     if(s.is_live && s.live_video_url){
+      const liveUrl = normalizeUrl(s.live_video_url);
+      const liveLabel = /youtu\.?be/i.test(liveUrl) ? 'YouTube' : 'Facebook';
       liveContainer.innerHTML = '<div style="margin:18px 20px 0; border-radius:8px 8px 20px 20px; overflow:hidden; aspect-ratio:16/9; background:var(--navy-deep);">'
-        + buildVideoEmbedHtml(s.live_video_url) + '</div>';
+        + buildVideoEmbedHtml(s.live_video_url) + '</div>'
+        + '<div style="text-align:center; padding:12px 20px 0;"><a href="'+esc(liveUrl)+'" target="_blank" style="color:var(--brick); font-size:13px; font-weight:600; text-decoration:none;">Video not playing? Watch directly on '+liveLabel+' →</a></div>';
       liveNote.textContent = 'Watching live. If the video doesn\'t load right away, it may still be starting up — give it a moment.';
     } else {
       liveContainer.innerHTML = '<div class="video-frame">'
@@ -977,7 +1051,7 @@ async function loadSettings(){
 
 async function loadSermons(){
   try{
-    const { data: items, error } = await supabase.from('sermons').select('*').order('sermon_date', { ascending:false });
+    const { data: items, error } = await supabase.from('sermons').select('*').order('sermon_date', { ascending:false }).limit(100);
     if(error) throw error;
     const listEl = document.getElementById('sermonsList');
     const featureEl = document.getElementById('sermonsLatestFeature');
@@ -1002,10 +1076,15 @@ async function loadEvents(){
       featureEl.innerHTML = '<div class="card-desc">No upcoming events posted yet.</div>';
       return;
     }
-    listEl.innerHTML = items.map(renderEventRow).join('');
     const today = todayISO();
-    const next = items.find(e => (e.event_date||'') >= today) || items[0];
-    featureEl.innerHTML = renderEventRow(next);
+    const upcoming = (items||[]).filter(e => (e.event_date||'') >= today);
+    if(upcoming.length === 0){
+      listEl.innerHTML = '<div class="card-desc">No upcoming events posted yet.</div>';
+      featureEl.innerHTML = '<div class="card-desc">No upcoming events posted yet.</div>';
+      return;
+    }
+    listEl.innerHTML = upcoming.map(renderEventRow).join('');
+    featureEl.innerHTML = renderEventRow(upcoming[0]);
   }catch(e){ console.error('events load failed', e); }
 }
 
@@ -1061,8 +1140,9 @@ window.promptSelfPhoto = function(directoryId){
     const statusEl = document.getElementById('selfPhotoStatus-'+directoryId);
     if(statusEl){ statusEl.textContent = 'Uploading...'; }
     try{
-      const path = 'self-submitted/'+directoryId+'_'+Date.now()+'_'+file.name.replace(/[^a-zA-Z0-9.\-_]/g,'_');
-      const { error: upErr } = await supabase.storage.from('profile-photos').upload(path, file);
+      const uploadFile = await compressImage(file);
+      const path = 'self-submitted/'+directoryId+'_'+Date.now()+'_'+uploadFile.name.replace(/[^a-zA-Z0-9.\-_]/g,'_');
+      const { error: upErr } = await supabase.storage.from('profile-photos').upload(path, uploadFile);
       if(upErr) throw upErr;
       const { data: pub } = supabase.storage.from('profile-photos').getPublicUrl(path);
       const { error: dbErr } = await supabase.from('directory').update({ pending_photo_url: pub.publicUrl }).eq('id', directoryId);
@@ -1179,6 +1259,10 @@ window.submitEventSignup = async function(eventId){
   const nameEl = document.getElementById('signupName');
   const name = nameEl.value.trim();
   if(!name){ nameEl.focus(); return; }
+  try{
+    const lastSignup = parseInt(localStorage.getItem('ssbc_signup_last') || '0', 10);
+    if(Date.now() - lastSignup < 60000){ alert('You just signed up — please wait a moment before signing up again.'); return; }
+  }catch(e){}
   const btn = document.getElementById('signupSubmitBtn');
   btn.disabled = true;
   btn.textContent = 'Signing up...';
@@ -1192,6 +1276,7 @@ window.submitEventSignup = async function(eventId){
       notes: document.getElementById('signupNotes').value.trim()
     });
     if(error) throw error;
+    try{ localStorage.setItem('ssbc_signup_last', String(Date.now())); }catch(e){}
     document.getElementById('signupConfirm').style.display = 'block';
     ['signupName','signupEmail','signupPhone','signupGuests','signupNotes'].forEach(id => {
       document.getElementById(id).value = '';
@@ -1206,7 +1291,7 @@ window.submitEventSignup = async function(eventId){
 
 async function loadSignupsList(){
   try{
-    const { data: items, error } = await supabase.from('events').select('*').eq('signup_enabled', true).order('event_date', { ascending:true });
+    const { data: items, error } = await supabase.from('events').select('*').eq('signup_enabled', true).order('event_date', { ascending:true }).limit(100);
     const listEl = document.getElementById('signupsEventList');
     if(error || !items || items.length === 0){
       listEl.innerHTML = '<div class="card-desc">No events currently have sign-ups open.</div>';
@@ -1323,7 +1408,7 @@ function renderAnnouncementCard(a){
 }
 async function loadAnnouncements(){
   try{
-    const { data: items, error } = await supabase.from('announcements').select('*').order('created_at', { ascending:false });
+    const { data: items, error } = await supabase.from('announcements').select('*').order('created_at', { ascending:false }).limit(100);
     if(error) throw error;
     const listEl = document.getElementById('announcementsList');
     const homeEl = document.getElementById('homeAnnouncement');
@@ -1389,7 +1474,7 @@ async function loadSlideshow(){
 /* --- Photos --- */
 async function loadPhotos(){
   try{
-    const { data: items, error } = await supabase.from('photos').select('*').order('created_at', { ascending:false });
+    const { data: items, error } = await supabase.from('photos').select('*').order('created_at', { ascending:false }).limit(200);
     if(error) throw error;
     const grid = document.getElementById('photosGrid');
     if(!items || items.length === 0){
@@ -1426,6 +1511,19 @@ loadSignupsList();
 loadMinistries();
 loadBeliefs();
 loadChatRooms();
+
+/* Refresh content when the app comes back from the background after a while,
+   so it doesn't sit on stale data all day. */
+let lastDataLoad = Date.now();
+document.addEventListener('visibilitychange', () => {
+  if(!document.hidden && Date.now() - lastDataLoad > 5*60*1000){
+    lastDataLoad = Date.now();
+    loadSettings(); loadSermons(); loadEvents(); loadLeadership(); loadDeacons();
+    loadDirectory(); loadGroups(); loadVerseOfDay(); loadAnnouncements();
+    loadSlideshow(); loadPhotos(); loadSignupsList(); loadMinistries();
+    loadBeliefs(); loadChatRooms();
+  }
+});
 
 /* --- Chat: a "General" room plus one room per Connect Group --- */
 let currentChatRoomId = null;
@@ -1476,6 +1574,7 @@ async function loadChatMessages(roomId){
 }
 
 function appendChatMessage(m){
+  if(m.room_id && currentChatRoomId && m.room_id !== currentChatRoomId) return; // stale message from a room we already left
   const wrap = document.getElementById('chatMessagesWrap');
   if(wrap.querySelector('.card-desc')) wrap.innerHTML = '';
   const when = m.created_at ? new Date(m.created_at).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}) : '';
