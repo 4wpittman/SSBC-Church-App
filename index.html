@@ -1551,7 +1551,7 @@ window.openChatRoom = async function(roomId, roomLabel){
   currentChatRoomId = roomId;
   document.getElementById('chatRoomTitle').textContent = roomLabel;
   openScreen('chat-room');
-  try{ document.getElementById('chatDisplayName').value = localStorage.getItem('ssbc_chat_name') || ''; }catch(e){}
+  renderChatNameState();
 
   await loadChatMessages(roomId);
 
@@ -1588,12 +1588,28 @@ function appendChatMessage(m){
   wrap.scrollTop = wrap.scrollHeight;
 }
 
+/* Chat display name: chosen once, then locked — stops anyone from sending
+   as one name and later switching to someone else's. */
+function renderChatNameState(){
+  const wrap = document.getElementById('chatNameFieldWrap');
+  if(!wrap) return;
+  let name = '';
+  try{ name = localStorage.getItem('ssbc_chat_name') || ''; }catch(e){}
+  if(name){
+    wrap.innerHTML = '<div style="font-size:12.5px; color:var(--ink-soft); background:var(--paper-dim); border-radius:8px; padding:9px 12px;">Chatting as <b style="color:var(--ink);">'+esc(name)+'</b> <span style="font-size:11px;">· name locked</span></div>';
+  }else{
+    wrap.innerHTML = '<input type="text" id="chatDisplayName" placeholder="Your name" style="width:100%; border:1px solid rgba(27,22,64,.12); background:#fff; border-radius:8px; padding:9px 12px; font-family:inherit; font-size:13.5px;">';
+  }
+}
+
 window.sendChatMessage = async function(){
   const nameEl = document.getElementById('chatDisplayName');
   const msgEl = document.getElementById('chatMessageInput');
-  const name = nameEl.value.trim();
+  let name = '';
+  try{ name = localStorage.getItem('ssbc_chat_name') || ''; }catch(e){}
+  if(nameEl) name = nameEl.value.trim();
   const message = msgEl.value.trim();
-  if(!name){ nameEl.focus(); return; }
+  if(!name){ if(nameEl) nameEl.focus(); return; }
   if(!message) return;
   try{ localStorage.setItem('ssbc_chat_name', name); }catch(e){}
   const roomLabel = document.getElementById('chatRoomTitle').textContent;
@@ -1606,6 +1622,7 @@ window.sendChatMessage = async function(){
       message: message
     });
     if(error) throw error;
+    renderChatNameState();
   }catch(e){
     alert('Message didn\'t send — please try again.');
   }
