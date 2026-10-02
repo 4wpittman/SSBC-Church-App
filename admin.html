@@ -117,6 +117,7 @@
       <button data-panel="announcements" onclick="showPanel('announcements')">Announcements</button>
       <button data-panel="photos" onclick="showPanel('photos')">Photos</button>
       <button data-panel="beliefs" onclick="showPanel('beliefs')">Our Beliefs</button>
+      <button data-panel="chat" onclick="showPanel('chat')">Chat</button>
     </div>
     <div class="content">
 
@@ -310,6 +311,13 @@
         <div id="form-beliefs"></div>
       </div>
 
+      <div class="panel" id="panel-chat">
+        <div class="panel-head"><h2>Chat moderation</h2></div>
+        <div class="card-desc" style="color:var(--ink-soft); margin-bottom:14px;">Everyone posts under a self-typed name, no login required — so this is the place to review and remove anything inappropriate. Deleting here removes it from the app immediately for everyone.</div>
+        <div class="field" style="max-width:320px;"><input id="chatSearchInput" placeholder="Search by name or message..." oninput="filterChatMessages()"></div>
+        <table><thead><tr><th>Room</th><th>Name</th><th>Message</th><th>Sent</th><th></th></tr></thead><tbody id="tbl-chat"></tbody></table>
+      </div>
+
     </div>
   </div>
 </div>
@@ -420,6 +428,7 @@ async function loadAllTables(){
   await renderSlidesAdmin();
   await loadSignupsEventOptions();
   await renderPendingPhotos();
+  await renderChatMessages();
 }
 
 const FILE_BUCKETS = { leadership: 'profile-photos', deacons: 'profile-photos', directory: 'profile-photos', events: 'event-images' };
@@ -1001,6 +1010,36 @@ window.createEventFromAnnouncement = async function(announcementId){
     statusEl.className = 'status-msg ok';
     statusEl.style.display = 'block';
   }
+};
+
+/* --- Chat moderation --- */
+let allChatMessages = [];
+function renderChatRows(items){
+  const tbody = document.getElementById('tbl-chat');
+  if(!items || items.length === 0){
+    tbody.innerHTML = '<tr><td colspan="5" class="empty-note">No messages yet.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = items.map(m => {
+    const when = m.created_at ? new Date(m.created_at).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}) : '—';
+    return '<tr><td>'+esc(m.room_label)+'</td><td>'+esc(m.display_name)+'</td><td style="max-width:280px;">'+esc(m.message)+'</td><td>'+when+'</td>'
+      + '<td class="actions"><button class="btn small danger" onclick="deleteChatMessage(\''+m.id+'\')">Delete</button></td></tr>';
+  }).join('');
+}
+async function renderChatMessages(){
+  const { data: items, error } = await supabase.from('chat_messages').select('*').order('created_at', { ascending:false }).limit(300);
+  allChatMessages = (error || !items) ? [] : items;
+  renderChatRows(allChatMessages);
+}
+window.filterChatMessages = function(){
+  const q = document.getElementById('chatSearchInput').value.trim().toLowerCase();
+  const filtered = q ? allChatMessages.filter(m => (m.display_name||'').toLowerCase().includes(q) || (m.message||'').toLowerCase().includes(q)) : allChatMessages;
+  renderChatRows(filtered);
+};
+window.deleteChatMessage = async function(id){
+  if(!confirm('Delete this message? It will disappear from the app immediately.')) return;
+  await supabase.from('chat_messages').delete().eq('id', id);
+  renderChatMessages();
 };
 </script>
 </body>
