@@ -274,12 +274,12 @@
 
         <div class="form-card">
           <h3>Slideshow slides</h3>
-          <div class="card-desc" style="color:var(--ink-soft); margin-bottom:12px;">Drop one or more PDFs/images here — they'll play in the app as a slideshow, changing every 5 seconds. Optionally link any slide to an event, so tapping it opens that event's page.</div>
+          <div class="card-desc" style="color:var(--ink-soft); margin-bottom:12px;">Drop PDFs, images, or a PowerPoint (.pptx) here — they'll play in the app as a slideshow, changing every 5 seconds. Photos are pulled straight out of the .pptx automatically. Optionally link any slide to an event, so tapping it opens that event's page.</div>
           <div class="card-desc" style="color:var(--brick); margin-bottom:12px; font-weight:600;">New slides are added alongside existing ones, not swapped in — use "Clear all slides" below before uploading a new week's deck.</div>
           <div id="slidesDropZone" class="slides-dropzone" onclick="document.getElementById('slidesFileInput').click()">
-            <div id="slidesDropText">Drag PDFs or images here, or click to browse (you can select multiple)</div>
+            <div id="slidesDropText">Drag PDFs, images, or a .pptx here — or click to browse (you can select multiple)</div>
           </div>
-          <input type="file" id="slidesFileInput" accept="application/pdf,image/*" multiple style="display:none;" onchange="handleSlidesFiles(this.files)">
+          <input type="file" id="slidesFileInput" accept="application/pdf,image/*,.pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation" multiple style="display:none;" onchange="handleSlidesFiles(this.files)">
           <div class="status-msg" id="slidesUploadStatus"></div>
           <div style="margin-top:12px;">
             <button class="btn small danger" onclick="clearAllSlides()">Clear all slides (<span id="slidesCountLabel">0</span>)</button>
@@ -325,6 +325,7 @@
 <script type="module">
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import Papa from "https://esm.sh/papaparse@5.4.1";
+import JSZip from "https://esm.sh/jszip@3.10.1";
 import { supabaseConfig } from "./supabase-config.js";
 
 const supabase = createClient(supabaseConfig.url, supabaseConfig.anonKey);
@@ -769,8 +770,59 @@ function extensionForFile(file){
   return null;
 }
 
+/* --- .pptx support: a .pptx is a zip — pull the embedded photos out of
+   ppt/media/ and feed them through the normal image pipeline. --- */
+async function extractPptxImages(pptxFile){
+  const zip = await JSZip.loadAsync(pptxFile);
+  const names = Object.keys(zip.files)
+    .filter(n => /^ppt\/media\//i.test(n) && /\.(png|jpe?g|gif)$/i.test(n))
+    .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  const out = [];
+  const base = pptxFile.name.replace(/\.pptx$/i, '');
+  for(const name of names){
+    const blob = await zip.files[name].async('blob');
+    const ext = name.split('.').pop().toLowerCase();
+    const mime = ext === 'png' ? 'image/png' : ext === 'gif' ? 'image/gif' : 'image/jpeg';
+    out.push(new File([blob], base+'-'+name.split('/').pop(), { type: mime }));
+  }
+  return out;
+}
+
 window.handleSlidesFiles = async function(fileList){
-  const files = Array.from(fileList || []);
+  let files = Array.from(fileList || []);
+  if(files.length === 0) return;
+
+  const statusEl = document.getElementById('slidesUploadStatus');
+  statusEl.className = 'status-msg ok';
+  statusEl.style.display = 'block';
+
+  /* Expand any .pptx files into their embedded images before anything else. */
+  const expanded = [];
+  for(const file of files){
+    if(/\.pptx$/i.test(file.name)){
+      statusEl.textContent = 'Reading '+file.name+'...';
+      try{
+        const imgs = await extractPptxImages(file);
+        if(imgs.length === 0){
+          statusEl.className = 'status-msg err';
+          statusEl.textContent = 'No images found inside '+file.name+'.';
+          return;
+        }
+        imgs.forEach(f => expanded.push(f));
+      }catch(e){
+        statusEl.className = 'status-msg err';
+        statusEl.textContent = 'Could not read '+file.name+' — is it a valid .pptx file?';
+        return;
+      }
+    }else if(/\.ppt$/i.test(file.name)){
+      statusEl.className = 'status-msg err';
+      statusEl.textContent = file.name+' is an old-style .ppt file, which can\'t be read directly. Re-save it as .pptx in PowerPoint and try again.';
+      return;
+    }else{
+      expanded.push(file);
+    }
+  }
+  files = expanded;
   if(files.length === 0) return;
 
   const { count: existingCount } = await supabase.from('announcement_slides').select('*', { count: 'exact', head: true });
@@ -784,10 +836,6 @@ window.handleSlidesFiles = async function(fileList){
       await clearAllSlides(true);
     }
   }
-
-  const statusEl = document.getElementById('slidesUploadStatus');
-  statusEl.className = 'status-msg ok';
-  statusEl.style.display = 'block';
 
   let uploaded = 0, failed = 0;
   for(const file of files){
