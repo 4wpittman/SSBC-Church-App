@@ -56,10 +56,10 @@
 
   .hero{background-image:radial-gradient(120% 100% at 20% 0%, #2A2266 0%, var(--navy) 55%, var(--navy-deep) 100%), url('data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%22120%22%20height%3D%22140%22%20viewBox%3D%220%200%20120%20140%22%3E%0A%3Cpath%20d%3D%22M20%20130%20V70%20Q20%2030%2060%2030%20Q100%2030%20100%2070%20V130%22%20fill%3D%22none%22%20stroke%3D%22white%22%20stroke-opacity%3D%220.05%22%20stroke-width%3D%222.5%22/%3E%0A%3C/svg%3E'); background-repeat:no-repeat, repeat; color:var(--paper); padding:6px 20px 30px; position:relative;}
   .hero .greeting{font-size:22px; line-height:1.25; max-width:78%;}
-  .hero .sub{font-size:13.5px; color:#C9BFF0; margin-top:6px;}
+  .hero .sub{font-size:13.5px; color:#E4DEF9; margin-top:6px;}
   .hero .times{margin-top:20px; display:flex; gap:10px;}
   .time-chip{background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.18); border-radius:3px 3px 10px 10px; padding:9px 12px; flex:1;}
-  .time-chip .day{font-size:11px; color:var(--gold-soft); font-weight:600;}
+  .time-chip .day{font-size:11px; color:var(--gold); font-weight:700;}
   .time-chip .t{font-size:14px; font-weight:600; margin-top:2px;}
 
   .live-banner{margin:-16px 20px 0; background:#fff; border:1px solid rgba(27,22,64,.07); border-radius:8px 8px 20px 20px; padding:13px 14px; display:flex; align-items:center; gap:12px; cursor:pointer; position:relative; z-index:2; box-shadow:0 6px 16px rgba(28,43,74,.08);}
@@ -118,12 +118,12 @@
   .slide-dots .dot{width:6px; height:6px; border-radius:50%; background:rgba(27,22,64,.12); transition:background .2s;}
   .slide-dots .dot.active{background:var(--gold);}
   .date-badge{width:46px; flex-shrink:0; text-align:center; background:var(--paper-dim); border-radius:6px; padding:6px 0;}
-  .date-badge .mo{font-size:10px; font-weight:700; color:var(--brick); letter-spacing:.03em;}
+  .date-badge .mo{font-size:10px; font-weight:700; color:var(--navy); letter-spacing:.03em;}
   .date-badge .dd{font-size:18px; font-weight:700; font-family:'Fraunces',serif; color:var(--navy); line-height:1.1;}
 
   .give-hero{background:linear-gradient(180deg, var(--navy) 0%, var(--navy-deep) 100%), url('data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%22120%22%20height%3D%22140%22%20viewBox%3D%220%200%20120%20140%22%3E%0A%3Cpath%20d%3D%22M20%20130%20V70%20Q20%2030%2060%2030%20Q100%2030%20100%2070%20V130%22%20fill%3D%22none%22%20stroke%3D%22white%22%20stroke-opacity%3D%220.05%22%20stroke-width%3D%222.5%22/%3E%0A%3C/svg%3E'); background-repeat:no-repeat, repeat; color:var(--paper); padding:28px 20px 26px;}
   .give-hero h2{font-size:20px; margin-bottom:6px;}
-  .give-hero p{font-size:13px; color:#C9BFF0; line-height:1.5; margin:0;}
+  .give-hero p{font-size:13px; color:#E4DEF9; line-height:1.5; margin:0;}
   .amount-grid{display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin:16px 0 14px;}
   .amt{background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.2); color:#fff; border-radius:8px; padding:10px 0; font-size:13.5px; font-weight:600; text-align:center; cursor:pointer;}
   .amt.selected{background:var(--gold); border-color:var(--gold); color:var(--navy-deep);}
@@ -168,7 +168,7 @@
   .bio-card{background:#fff; border:1px solid rgba(27,22,64,.07); border-radius:22px 22px 8px 8px; padding:16px; margin-bottom:12px; display:flex; gap:14px; box-shadow:var(--shadow-sm);}
   .bio-avatar{width:56px; height:56px; border-radius:50%; background:var(--gold-soft); color:var(--navy); display:flex; align-items:center; justify-content:center; font-family:'Fraunces',serif; font-weight:600; font-size:17px; flex-shrink:0;}
   .bio-name{font-size:15px; font-weight:600;}
-  .bio-role{font-size:12px; color:var(--brick); font-weight:600; margin:2px 0 6px;}
+  .bio-role{font-size:12px; color:var(--sage); font-weight:600; margin:2px 0 6px;}
   .bio-text{font-size:13px; color:var(--ink-soft); line-height:1.5;}
 
   .chip-row{display:flex; gap:8px; overflow-x:auto; padding-bottom:2px; margin-bottom:16px;}
@@ -231,6 +231,8 @@
 
   .tabbar{position:absolute; left:0; right:0; bottom:0; background:#fff; border-top:1px solid rgba(27,22,64,.08); display:flex; padding:8px 6px calc(8px + env(safe-area-inset-bottom)); max-width:430px; margin:0 auto; width:100%; box-shadow:0 -4px 16px rgba(27,22,64,.06);}
   .tab{flex:1; display:flex; flex-direction:column; align-items:center; gap:4px; background:none; border:none; padding:6px 2px; cursor:pointer; color:#9C8F7A; transition:transform .1s ease;}
+  .tab::after{content:''; width:22px; height:3px; border-radius:3px; background:transparent; margin-top:2px;}
+  .tab.active::after{background:var(--gold);}
   .tab:active{transform:scale(.92);}
   .tab svg{width:20px; height:20px;}
   .tab .tlabel{font-size:10.5px; font-weight:600;}
@@ -1083,7 +1085,8 @@ async function loadEvents(){
       featureEl.innerHTML = '<div class="card-desc">No upcoming events posted yet.</div>';
       return;
     }
-    listEl.innerHTML = upcoming.map(renderEventRow).join('');
+    const rest = upcoming.slice(1);
+    listEl.innerHTML = rest.length ? rest.map(renderEventRow).join('') : '<div class="card-desc">That&rsquo;s everything coming up.</div>';
     featureEl.innerHTML = renderEventRow(upcoming[0]);
   }catch(e){ console.error('events load failed', e); }
 }
