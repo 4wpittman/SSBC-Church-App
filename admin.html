@@ -86,7 +86,6 @@
     <button class="btn block" id="loginSubmitBtn" onclick="doLogin()">Sign in</button>
     <div id="loginError"></div>
     <div id="loginNotice"></div>
-    <button class="toggle-link" onclick="toggleMode()" id="toggleModeBtn">First time here? Create a staff account →</button>
   </div>
 </div>
 
@@ -330,8 +329,6 @@ import { supabaseConfig } from "./supabase-config.js";
 
 const supabase = createClient(supabaseConfig.url, supabaseConfig.anonKey);
 
-let mode = 'signin';
-
 const SCHEMAS = {
   sermons: [['title','Title','text'],['series','Series','text'],['speaker','Speaker','text'],['sermon_date','Date','date'],['duration','Duration (e.g. 18:42)','text'],['video_url','Video link \u2014 Facebook or YouTube (optional)','text']],
   events: [['title','Title','text'],['event_date','Date','date'],['time','Time (e.g. 10:45am)','text'],['location','Location','text'],['image_url','Header photo, 16:9 works best (optional)','file'],['signup_enabled','Enable sign-up sheet for this event','checkbox'],['notify_email','Send sign-up notifications to (optional)','text']],
@@ -367,18 +364,6 @@ window.showPanel = function(name){
   document.querySelector('.nav button[data-panel="'+name+'"]').classList.add('active');
 };
 
-window.toggleMode = function(){
-  mode = mode === 'signin' ? 'signup' : 'signin';
-  document.getElementById('loginHeading').textContent = mode === 'signup' ? 'Create staff account' : 'Staff dashboard';
-  document.getElementById('loginSub').textContent = mode === 'signup'
-    ? 'Set up a login for yourself or a staff member.'
-    : 'Sign in to edit content for Smiths Station Baptist Church.';
-  document.getElementById('loginSubmitBtn').textContent = mode === 'signup' ? 'Create account' : 'Sign in';
-  document.getElementById('toggleModeBtn').textContent = mode === 'signup' ? '← Back to sign in' : 'First time here? Create a staff account →';
-  document.getElementById('loginError').style.display = 'none';
-  document.getElementById('loginNotice').style.display = 'none';
-};
-
 window.doLogin = async function(){
   const email = document.getElementById('loginEmail').value.trim();
   const pass = document.getElementById('loginPassword').value;
@@ -387,22 +372,10 @@ window.doLogin = async function(){
   errEl.style.display = 'none';
   noticeEl.style.display = 'none';
 
-  if(mode === 'signup'){
-    const { error } = await supabase.auth.signUp({ email, password: pass });
-    if(error){
-      errEl.textContent = error.message;
-      errEl.style.display = 'block';
-      return;
-    }
-    noticeEl.textContent = 'Account created. If email confirmation is on, check your inbox — otherwise you can sign in now.';
-    noticeEl.style.display = 'block';
-    window.toggleMode();
-  } else {
-    const { error } = await supabase.auth.signInWithPassword({ email, password: pass });
-    if(error){
-      errEl.textContent = error.message;
-      errEl.style.display = 'block';
-    }
+  const { error } = await supabase.auth.signInWithPassword({ email, password: pass });
+  if(error){
+    errEl.textContent = error.message;
+    errEl.style.display = 'block';
   }
 };
 window.doLogout = function(){ supabase.auth.signOut(); };
