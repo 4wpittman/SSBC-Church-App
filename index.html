@@ -969,10 +969,13 @@ function renderPersonRow(p, withContact, allowSelfUpload){
     familyHtml += '</div>';
   }
   if(allowSelfUpload){
-    familyHtml += '<div style="margin-top:8px; width:100%;">'
-      + (p.pending_photo_url
-          ? '<span style="font-size:11px; color:var(--ink-soft);">Photo submitted — pending staff review</span>'
-          : '<button id="selfPhotoBtn-'+p.id+'" onclick="event.stopPropagation(); promptSelfPhoto(\''+p.id+'\')" style="background:none; border:none; color:var(--brick); font-size:11.5px; font-weight:600; cursor:pointer; padding:0; font-family:inherit;">Is this you? Upload your photo</button>')
+    // Photo state per member: no photo → upload prompt; pending → waiting text;
+    // approved photo → option to update (goes through approval again).
+    const photoControl = p.pending_photo_url
+      ? '<span style="font-size:11px; color:var(--ink-soft);">Photo submitted — pending staff review</span>'
+      : '<button id="selfPhotoBtn-'+p.id+'" onclick="event.stopPropagation(); promptSelfPhoto(\''+p.id+'\')" style="background:none; border:none; color:var(--brick); font-size:11.5px; font-weight:600; cursor:pointer; padding:0; font-family:inherit;">'
+        + (p.photo_url ? 'Update your photo' : 'Is this you? Upload your photo') + '</button>';
+    familyHtml += '<div style="margin-top:8px; width:100%;">' + photoControl
       + '<span id="selfPhotoStatus-'+p.id+'" style="font-size:11px; color:var(--ink-soft); margin-left:6px;"></span>'
       + '</div>';
   }
@@ -1202,7 +1205,12 @@ async function loadDirectory(){
 window.filterDirectory = function(){
   const q = document.getElementById('directorySearchInput').value.trim().toLowerCase();
   const listEl = document.getElementById('directoryList');
-  const filtered = q ? allDirectoryItems.filter(p => (p.name||'').toLowerCase().includes(q)) : allDirectoryItems;
+  // Match the member's name, spouse's name, or children's names —
+  // every name listed in the directory can be found.
+  const filtered = q ? allDirectoryItems.filter(p => {
+    const hay = [p.name, p.spouse_name, p.children].filter(Boolean).join(' ').toLowerCase();
+    return hay.includes(q);
+  }) : allDirectoryItems;
   listEl.innerHTML = filtered.length ? filtered.map(p=>renderPersonRow(p,true,true)).join('') : '<div class="card-desc">No matches found.</div>';
 };
 
