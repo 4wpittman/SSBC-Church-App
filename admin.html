@@ -1,1101 +1,125 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Staff Dashboard — Smiths Station Baptist Church</title>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<style>
-  :root{
-    --navy:#1C2B4A; --navy-deep:#131E33; --gold:#D9A441; --gold-soft:#F0DDB0;
-    --paper:#F8F6F1; --paper-dim:#EFEBE1; --brick:#8B4A3B; --sage:#6E7F5C;
-    --ink:#2A2520; --ink-soft:#6B655C; --danger:#B3432D;
-  }
-  *{box-sizing:border-box;}
-  body{margin:0; font-family:'Inter',sans-serif; background:var(--paper); color:var(--ink);}
-  h1,h2,h3{font-family:'Fraunces',serif; margin:0; font-weight:600;}
-
-  #loginScreen{min-height:100vh; display:flex; align-items:center; justify-content:center; padding:20px;}
-  .login-box{background:#fff; border:1px solid #E4DFD3; border-radius:16px; padding:32px 28px; width:100%; max-width:360px;}
-  .login-box h1{font-size:20px; color:var(--navy); margin-bottom:4px;}
-  .login-box .sub{font-size:13px; color:var(--ink-soft); margin-bottom:22px;}
-  .field{margin-bottom:14px;}
-  .field label{display:block; font-size:12.5px; font-weight:600; color:var(--ink-soft); margin-bottom:6px;}
-  .field input, .field select, .field textarea{width:100%; border:1px solid #DCD5C4; background:#fff; border-radius:8px; padding:10px 12px; font-family:inherit; font-size:14px; color:var(--ink);}
-  .field textarea{min-height:70px; resize:vertical;}
-  .btn{background:var(--navy); color:#fff; border:none; padding:11px 16px; border-radius:8px; font-size:14px; font-weight:700; font-family:inherit; cursor:pointer;}
-  .btn.gold{background:var(--gold); color:var(--navy-deep);}
-  .btn.danger{background:var(--danger); color:#fff;}
-  .btn.ghost{background:none; color:var(--navy); border:1px solid #DCD5C4;}
-  .btn.small{padding:7px 12px; font-size:12.5px;}
-  .btn.block{width:100%;}
-  .toggle-link{background:none; border:none; color:var(--brick); font-size:12.5px; font-weight:600; cursor:pointer; font-family:inherit; padding:0; margin-top:14px;}
-  #loginError{color:var(--danger); font-size:13px; margin-top:10px; display:none;}
-  #loginNotice{color:var(--sage); font-size:13px; margin-top:10px; display:none;}
-
-  #dashboard{display:none;}
-  .topbar{background:var(--navy); color:#fff; padding:14px 20px; display:flex; align-items:center; justify-content:space-between;}
-  .topbar h1{font-size:16px;}
-  .topbar .who{font-size:12px; color:var(--gold-soft); margin-top:2px;}
-  .layout{display:flex; max-width:1100px; margin:0 auto;}
-  .nav{width:190px; flex-shrink:0; padding:20px 12px; border-right:1px solid #E4DFD3; min-height:calc(100vh - 60px);}
-  .nav button{display:block; width:100%; text-align:left; background:none; border:none; padding:10px 12px; border-radius:8px; font-size:13.5px; font-weight:600; color:var(--ink-soft); cursor:pointer; margin-bottom:2px; font-family:inherit;}
-  .nav button.active{background:var(--paper-dim); color:var(--navy);}
-  .content{flex:1; padding:24px 28px;}
-  .panel{display:none;}
-  .panel.active{display:block;}
-  .panel-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:18px;}
-  .panel-head h2{font-size:19px;}
-
-  table{width:100%; border-collapse:collapse; background:#fff; border:1px solid #E4DFD3; border-radius:10px; overflow:hidden;}
-  th{text-align:left; font-size:11.5px; text-transform:uppercase; letter-spacing:.03em; color:var(--ink-soft); background:var(--paper-dim); padding:10px 12px;}
-  td{padding:10px 12px; font-size:13.5px; border-top:1px solid #EFEBE1;}
-  td.actions{white-space:nowrap; text-align:right;}
-  td.actions button{margin-left:6px;}
-
-  .form-card{background:#fff; border:1px solid #E4DFD3; border-radius:12px; padding:18px 20px; margin-top:16px; max-width:480px;}
-  .form-card h3{font-size:14px; margin-bottom:14px;}
-  .form-row{display:flex; gap:10px;}
-  .form-row .field{flex:1;}
-  .status-msg{font-size:12.5px; margin-top:10px; display:none;}
-  .status-msg.ok{color:var(--sage);}
-  .status-msg.err{color:var(--danger);}
-  .empty-note{font-size:13px; color:var(--ink-soft); padding:14px 0;}
-  .photo-admin-grid{display:grid; grid-template-columns:repeat(auto-fill, minmax(120px,1fr)); gap:10px;}
-  .photo-admin-item{position:relative; border-radius:10px; overflow:hidden; aspect-ratio:1; border:1px solid #E4DFD3;}
-  .photo-admin-item img{width:100%; height:100%; object-fit:cover; display:block;}
-  .photo-admin-item button{position:absolute; top:6px; right:6px; background:rgba(179,67,45,.9); color:#fff; border:none; border-radius:6px; padding:4px 8px; font-size:11px; cursor:pointer; font-family:inherit;}
-  .pending-photo-row{display:flex; gap:12px; align-items:center; background:var(--paper-dim); border-radius:12px; padding:10px 12px; margin-bottom:8px;}
-  .pending-photo-row img{width:48px; height:48px; border-radius:50%; object-fit:cover; flex-shrink:0;}
-  .pending-photo-row .ppr-name{font-weight:600; font-size:13.5px; flex:1;}
-  .slide-admin-row{display:flex; gap:12px; align-items:center; background:#fff; border:1px solid #E4DFD3; border-radius:12px; padding:10px 12px; margin-bottom:8px;}
-  .slide-admin-row .slide-thumb{width:64px; height:36px; object-fit:cover; border-radius:6px; flex-shrink:0; background:var(--paper-dim);}
-  .slide-admin-row select{flex:1; min-width:0;}
-  .slides-dropzone{border:2px dashed #DCD5C4; border-radius:12px; padding:28px 16px; text-align:center; cursor:pointer; color:var(--ink-soft); font-size:13.5px; font-weight:600; transition:background .15s, border-color .15s;}
-  .slides-dropzone:hover, .slides-dropzone.dragover{background:var(--paper-dim); border-color:var(--gold);}
-</style>
-</head>
-<body>
-
-<div id="loginScreen">
-  <div class="login-box">
-    <h1 id="loginHeading">Staff dashboard</h1>
-    <div class="sub" id="loginSub">Sign in to edit content for Smiths Station Baptist Church.</div>
-    <div class="field"><label>Email</label><input type="email" id="loginEmail" placeholder="you@ssbc.org"></div>
-    <div class="field"><label>Password</label><input type="password" id="loginPassword" placeholder="At least 6 characters"></div>
-    <button class="btn block" id="loginSubmitBtn" onclick="doLogin()">Sign in</button>
-    <div id="loginError"></div>
-    <div id="loginNotice"></div>
-  </div>
-</div>
-
-<div id="dashboard">
-  <div class="topbar">
-    <div>
-      <h1>Smiths Station Baptist — Staff dashboard</h1>
-      <div class="who" id="whoText"></div>
-    </div>
-    <div style="display:flex; gap:8px;">
-      <a href="index.html" class="btn ghost" style="color:#fff; border-color:rgba(255,255,255,.4); text-decoration:none; display:inline-flex; align-items:center;">View app</a>
-      <button class="btn ghost" style="color:#fff; border-color:rgba(255,255,255,.4);" onclick="doLogout()">Sign out</button>
-    </div>
-  </div>
-  <div class="layout">
-    <div class="nav">
-      <button class="active" data-panel="settings" onclick="showPanel('settings')">Service times &amp; live</button>
-      <button data-panel="sermons" onclick="showPanel('sermons')">Sermons</button>
-      <button data-panel="events" onclick="showPanel('events')">Events</button>
-      <button data-panel="leadership" onclick="showPanel('leadership')">Leadership</button>
-      <button data-panel="deacons" onclick="showPanel('deacons')">Deacons</button>
-      <button data-panel="groups" onclick="showPanel('groups')">Connect groups</button>
-      <button data-panel="ministries" onclick="showPanel('ministries')">Ministries</button>
-      <button data-panel="directory" onclick="showPanel('directory')">Directory</button>
-      <button data-panel="prayers" onclick="showPanel('prayers')">Prayer requests</button>
-      <button data-panel="signups" onclick="showPanel('signups')">Sign-ups</button>
-      <button data-panel="verses" onclick="showPanel('verses')">Verse of the day</button>
-      <button data-panel="announcements" onclick="showPanel('announcements')">Announcements</button>
-      <button data-panel="photos" onclick="showPanel('photos')">Photos</button>
-      <button data-panel="beliefs" onclick="showPanel('beliefs')">Our Beliefs</button>
-      <button data-panel="chat" onclick="showPanel('chat')">Chat</button>
-    </div>
-    <div class="content">
-
-      <div class="panel active" id="panel-settings">
-        <div class="panel-head"><h2>Service times &amp; live status</h2></div>
-        <div class="form-card">
-          <div class="form-row">
-            <div class="field"><label>Sunday School time</label><input id="s_sundaySchool" placeholder="9:30am"></div>
-            <div class="field"><label>Sunday Worship time</label><input id="s_sundayWorship" placeholder="10:45am"></div>
-          </div>
-          <div class="field"><label>Wednesday times</label><input id="s_wed" placeholder="6:30pm"></div>
-          <div class="field"><label>Address</label><input id="s_address" placeholder="2210 Lee Rd, Smiths Station, AL 36877"></div>
-          <div class="field"><label>Phone</label><input id="s_phone" placeholder="(334) 555-0142"></div>
-          <div class="field"><label><input type="checkbox" id="s_isLive" style="width:auto; margin-right:6px;">Show "Live now" banner</label></div>
-          <div class="form-row">
-            <div class="field"><label>Live title</label><input id="s_liveTitle" placeholder="Live now · Sunday worship"></div>
-            <div class="field"><label>Live subtitle</label><input id="s_liveSub" placeholder="Tap to watch the service"></div>
-          </div>
-          <div class="field">
-            <label>Live video link (Facebook or YouTube)</label>
-            <input id="s_liveVideoUrl" placeholder="https://youtube.com/watch?v=... or a Facebook video link">
-          </div>
-          <div class="card-desc" style="font-size:12px; color:var(--ink-soft); margin-bottom:14px;">
-            YouTube links tend to be more reliable than Facebook's — Facebook can block embedding if a Page has certain privacy/restriction settings on, which is outside anyone's control here. If Facebook video isn't showing up in the app, try streaming to YouTube instead (or in addition) and use that link.
-          </div>
-          <div class="card-desc" style="font-size:12px; color:var(--ink-soft); margin-bottom:14px;">
-            For Facebook: open the live video on its own page and copy the link from the address bar. Phone share sheets sometimes produce short fb.watch links — those won't embed, so grab the full link instead (it should contain "/videos/"). Share-style links (/share/v/...) are converted automatically. For YouTube: copy the link directly from the video or livestream page.
-          </div>
-          <div class="field">
-            <label>Giving link (any provider)</label>
-            <input id="s_givingUrl" placeholder="https://your-giving-provider.com/yourchurch">
-          </div>
-          <div class="card-desc" style="font-size:12px; color:var(--ink-soft); margin-bottom:14px;">
-            Works with any giving platform — PayPal, Givelify, Pushpay, Tithe.ly, a bank's own giving page, etc. Paste whatever link your provider gives you here, and the Give button in the app will open it.
-          </div>
-          <div class="form-row">
-            <div class="field"><label>Facebook page URL</label><input id="s_facebookUrl" placeholder="https://facebook.com/yourchurch"></div>
-            <div class="field"><label>Instagram URL</label><input id="s_instagramUrl" placeholder="https://instagram.com/yourchurch"></div>
-          </div>
-          <div class="field"><label>YouTube URL</label><input id="s_youtubeUrl" placeholder="https://youtube.com/@yourchurch"></div>
-          <div class="field">
-            <label>Send prayer requests to (email)</label>
-            <input id="s_prayerEmail" placeholder="prayerteam@yourchurch.org">
-          </div>
-          <div class="card-desc" style="font-size:12px; color:var(--ink-soft); margin-bottom:14px;">
-            This address is saved and ready to use — prayer requests are emailed here automatically once the send-notification email function is set up (see EMAIL_SETUP.md in the repo for the steps).
-          </div>
-          <div class="field">
-            <label>Google Calendar embed link</label>
-            <input id="s_calendarUrl" placeholder="https://calendar.google.com/calendar/embed?src=...">
-          </div>
-          <div class="card-desc" style="font-size:12px; color:var(--ink-soft); margin-bottom:14px;">
-            In Google Calendar → Settings → your calendar → "Integrate calendar" → copy the "Embed code" link (the src=... URL inside it, not the whole iframe tag).
-          </div>
-          <button class="btn gold" onclick="saveSettings()">Save</button>
-          <div class="status-msg" id="settingsStatus"></div>
-        </div>
-      </div>
-
-      <div class="panel" id="panel-sermons">
-        <div class="panel-head"><h2>Sermons</h2><button class="btn small gold" onclick="openForm('sermons')">Add sermon</button></div>
-        <table><thead><tr><th>Title</th><th>Speaker</th><th>Date</th><th></th></tr></thead><tbody id="tbl-sermons"></tbody></table>
-        <div id="form-sermons"></div>
-      </div>
-
-      <div class="panel" id="panel-events">
-        <div class="panel-head"><h2>Events</h2><button class="btn small gold" onclick="openForm('events')">Create event</button></div>
-        <table><thead><tr><th>Photo</th><th>Title</th><th>Date</th><th>Time</th><th>Sign-up?</th><th></th></tr></thead><tbody id="tbl-events"></tbody></table>
-        <div id="form-events"></div>
-      </div>
-
-      <div class="panel" id="panel-leadership">
-        <div class="panel-head"><h2>Leadership</h2><button class="btn small gold" onclick="openForm('leadership')">Add staff member</button></div>
-        <table><thead><tr><th>Photo</th><th>Name</th><th>Role</th><th>Phone</th><th></th></tr></thead><tbody id="tbl-leadership"></tbody></table>
-        <div id="form-leadership"></div>
-      </div>
-
-      <div class="panel" id="panel-deacons">
-        <div class="panel-head"><h2>Deacons</h2><button class="btn small gold" onclick="openForm('deacons')">Add deacon</button></div>
-        <table><thead><tr><th>Photo</th><th>Name</th><th>Role</th><th>Phone</th><th></th></tr></thead><tbody id="tbl-deacons"></tbody></table>
-        <div id="form-deacons"></div>
-      </div>
-
-      <div class="panel" id="panel-groups">
-        <div class="panel-head"><h2>Connect groups</h2><button class="btn small gold" onclick="openForm('groups')">Add group</button></div>
-
-        <div class="form-card">
-          <h3>Bulk import from CSV</h3>
-          <div class="card-desc" style="color:var(--ink-soft); margin-bottom:12px;">Columns: title, category, meta, description. A row whose title matches an existing group updates it — anything new gets added. Leave a cell blank to keep the current value.</div>
-          <div id="groupsDropZone" class="slides-dropzone" onclick="document.getElementById('groupsFileInput').click()">
-            <div>Drag a CSV here, or click to browse</div>
-          </div>
-          <input type="file" id="groupsFileInput" accept=".csv" style="display:none;" onchange="handleBulkImport('groups', this.files[0])">
-          <div class="status-msg" id="groupsImportStatus"></div>
-        </div>
-
-        <table><thead><tr><th>Title</th><th>Category</th><th>Meets</th><th></th></tr></thead><tbody id="tbl-groups"></tbody></table>
-        <div id="form-groups"></div>
-      </div>
-
-      <div class="panel" id="panel-ministries">
-        <div class="panel-head"><h2>Ministries</h2><button class="btn small gold" onclick="openForm('ministries')">Add ministry</button></div>
-        <table><thead><tr><th>Name</th><th>Location</th><th></th></tr></thead><tbody id="tbl-ministries"></tbody></table>
-        <div id="form-ministries"></div>
-      </div>
-
-      <div class="panel" id="panel-directory">
-        <div class="panel-head"><h2>Directory</h2><button class="btn small gold" onclick="openForm('directory')">Add entry</button></div>
-
-        <div class="form-card" id="pendingPhotosCard" style="display:none;">
-          <h3>Photos waiting for approval</h3>
-          <div class="card-desc" style="color:var(--ink-soft); margin-bottom:12px;">Members can submit their own photo from the app. Nothing goes public until you approve it here.</div>
-          <div id="pendingPhotosGrid"></div>
-        </div>
-
-        <div class="form-card">
-          <h3>Bulk import from CSV</h3>
-          <div class="card-desc" style="color:var(--ink-soft); margin-bottom:12px;">Columns: name, role, phone, initials, spouse_name, children. A row whose name matches an existing entry updates it — anything new gets added. Leave a cell blank to keep the current value. (Photos still need to be added individually via Edit.)</div>
-          <div id="directoryDropZone" class="slides-dropzone" onclick="document.getElementById('directoryFileInput').click()">
-            <div>Drag a CSV here, or click to browse</div>
-          </div>
-          <input type="file" id="directoryFileInput" accept=".csv" style="display:none;" onchange="handleBulkImport('directory', this.files[0])">
-          <div class="status-msg" id="directoryImportStatus"></div>
-        </div>
-
-        <table><thead><tr><th>Photo</th><th>Name</th><th>Role</th><th>Phone</th><th></th></tr></thead><tbody id="tbl-directory"></tbody></table>
-        <div id="form-directory"></div>
-      </div>
-
-      <div class="panel" id="panel-prayers">
-        <div class="panel-head"><h2>Prayer requests</h2></div>
-        <div class="field" style="max-width:320px;"><input id="prayerSearchInput" placeholder="Search by name..." oninput="filterPrayerRequests()"></div>
-        <table><thead><tr><th>Name</th><th>Request</th><th>Sharing</th><th>Received</th><th>Prayed for?</th><th></th></tr></thead><tbody id="tbl-prayers"></tbody></table>
-      </div>
-
-      <div class="panel" id="panel-signups">
-        <div class="panel-head"><h2>Sign-ups</h2></div>
-        <div class="field" style="max-width:320px;">
-          <label>Choose an event</label>
-          <select id="signupsEventSelect" onchange="loadSignupsForEvent(this.value)"></select>
-        </div>
-        <table><thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Guests</th><th>Notes</th><th>Signed up</th><th></th></tr></thead><tbody id="tbl-signups"></tbody></table>
-      </div>
-
-      <div class="panel" id="panel-verses">
-        <div class="panel-head"><h2>Verse of the day</h2><button class="btn small gold" onclick="openForm('verses')">Add reference</button></div>
-        <div class="card-desc" style="color:var(--ink-soft); margin-bottom:14px;">Add Bible references (like "John 3:16" or "Psalm 23:1-3") — the app rotates through this list one per day and fetches the actual verse text live, so there's nothing else to maintain.</div>
-        <table><thead><tr><th>Reference</th><th></th></tr></thead><tbody id="tbl-verses"></tbody></table>
-        <div id="form-verses"></div>
-      </div>
-
-      <div class="panel" id="panel-announcements">
-        <div class="panel-head"><h2>Announcements</h2></div>
-
-        <div class="form-card">
-          <h3>Slideshow slides</h3>
-          <div class="card-desc" style="color:var(--ink-soft); margin-bottom:12px;">Drop PDFs, images, or a PowerPoint (.pptx) here — they'll play in the app as a slideshow, changing every 5 seconds. Photos are pulled straight out of the .pptx automatically. Optionally link any slide to an event, so tapping it opens that event's page.</div>
-          <div class="card-desc" style="color:var(--brick); margin-bottom:12px; font-weight:600;">New slides are added alongside existing ones, not swapped in — use "Clear all slides" below before uploading a new week's deck.</div>
-          <div id="slidesDropZone" class="slides-dropzone" onclick="document.getElementById('slidesFileInput').click()">
-            <div id="slidesDropText">Drag PDFs, images, or a .pptx here — or click to browse (you can select multiple)</div>
-          </div>
-          <input type="file" id="slidesFileInput" accept="application/pdf,image/*,.pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation" multiple style="display:none;" onchange="handleSlidesFiles(this.files)">
-          <div class="status-msg" id="slidesUploadStatus"></div>
-          <div style="margin-top:12px;">
-            <button class="btn small danger" onclick="clearAllSlides()">Clear all slides (<span id="slidesCountLabel">0</span>)</button>
-          </div>
-          <div id="slidesAdminGrid" style="margin-top:16px;"></div>
-        </div>
-
-        <div class="panel-head" style="margin-top:24px;"><h2 style="font-size:16px;">Text announcements</h2><button class="btn small gold" onclick="openForm('announcements')">Add announcement</button></div>
-        <table><thead><tr><th>Title</th><th>Posted</th><th></th></tr></thead><tbody id="tbl-announcements"></tbody></table>
-        <div id="form-announcements"></div>
-      </div>
-
-      <div class="panel" id="panel-photos">
-        <div class="panel-head"><h2>Photos</h2></div>
-        <div class="form-card">
-          <h3>Upload a photo</h3>
-          <div class="field"><label>Image file</label><input type="file" id="photoFileInput" accept="image/*"></div>
-          <div class="field"><label>Caption (optional)</label><input id="photoCaptionInput" placeholder="Youth group bonfire, Sept 2026"></div>
-          <button class="btn gold" onclick="uploadPhoto()">Upload</button>
-          <div class="status-msg" id="photoUploadStatus"></div>
-        </div>
-        <div class="photo-admin-grid" id="photosAdminGrid" style="margin-top:16px;"></div>
-      </div>
-
-      <div class="panel" id="panel-beliefs">
-        <div class="panel-head"><h2>Our Beliefs</h2><button class="btn small gold" onclick="openForm('beliefs')">Add topic</button></div>
-        <div class="card-desc" style="color:var(--ink-soft); margin-bottom:14px;">The 19 standard topics are pre-loaded with empty statements — click Edit on each to add your church's wording. Order controls the sequence shown in the app (lower numbers first).</div>
-        <table><thead><tr><th>Order</th><th>Title</th><th></th></tr></thead><tbody id="tbl-beliefs"></tbody></table>
-        <div id="form-beliefs"></div>
-      </div>
-
-      <div class="panel" id="panel-chat">
-        <div class="panel-head"><h2>Chat moderation</h2></div>
-        <div class="card-desc" style="color:var(--ink-soft); margin-bottom:14px;">Everyone posts under a self-typed name, no login required — so this is the place to review and remove anything inappropriate. Deleting here removes it from the app immediately for everyone.</div>
-        <div class="field" style="max-width:320px;"><input id="chatSearchInput" placeholder="Search by name or message..." oninput="filterChatMessages()"></div>
-        <table><thead><tr><th>Room</th><th>Name</th><th>Message</th><th>Sent</th><th></th></tr></thead><tbody id="tbl-chat"></tbody></table>
-      </div>
-
-    </div>
-  </div>
-</div>
-
-<script type="module">
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import Papa from "https://esm.sh/papaparse@5.4.1";
-import JSZip from "https://esm.sh/jszip@3.10.1";
-import { supabaseConfig } from "./supabase-config.js";
 
-const supabase = createClient(supabaseConfig.url, supabaseConfig.anonKey);
-
-const SCHEMAS = {
-  sermons: [['title','Title','text'],['series','Series','text'],['speaker','Speaker','text'],['sermon_date','Date','date'],['duration','Duration (e.g. 18:42)','text'],['video_url','Video link \u2014 Facebook or YouTube (optional)','text']],
-  events: [['title','Title','text'],['event_date','Date','date'],['time','Time (e.g. 10:45am)','text'],['location','Location','text'],['image_url','Header photo, 16:9 works best (optional)','file'],['signup_enabled','Enable sign-up sheet for this event','checkbox'],['notify_email','Send sign-up notifications to (optional)','text']],
-  leadership: [['name','Name','text'],['role','Role','text'],['bio','Bio','textarea'],['phone','Phone (optional)','text'],['email','Email (optional)','text'],['initials','Initials (optional)','text'],['photo_url','Profile picture (optional)','file']],
-  deacons: [['name','Name','text'],['role','Role','text'],['phone','Phone','text'],['email','Email (optional)','text'],['initials','Initials (optional)','text'],['photo_url','Profile picture (optional)','file']],
-  groups: [['title','Title','text'],['category',"Category (men/women/youth/young/senior)",'text'],['meta','Meets (e.g. Tuesdays, 6:00am · Fellowship Hall)','text'],['description','Description','textarea']],
-  directory: [['name','Name','text'],['role','Role / note','text'],['phone','Phone (optional)','text'],['initials','Initials (optional)','text'],['photo_url','Profile picture (optional)','file'],['spouse_name','Spouse name (optional)','text'],['spouse_photo_url','Spouse profile picture (optional)','file'],['children','Children (optional — e.g. Emma, Jack, and Lily)','text']],
-  verses: [['reference','Reference (e.g. John 3:16)','text']],
-  announcements: [['title','Title','text'],['body','Details','textarea']],
-  ministries: [['name','Ministry name','text'],['description','Description','textarea'],['location','Location (optional)','text'],['learn_more_url','Learn more link (optional)','text']],
-  beliefs: [['title','Title','text'],['body','Statement (your church\'s wording)','textarea'],['order_num','Order (lower shows first)','text']]
-};
-const TABLE_COLS = {
-  sermons: ['title','speaker','sermon_date'],
-  events: ['image_url','title','event_date','time','signup_enabled'],
-  leadership: ['photo_url','name','role','phone'],
-  deacons: ['photo_url','name','role','phone'],
-  groups: ['title','category','meta'],
-  directory: ['photo_url','name','role','phone'],
-  verses: ['reference'],
-  announcements: ['title'],
-  ministries: ['name','location'],
-  beliefs: ['order_num','title']
-};
-
-let currentEditId = {};
-let currentEditData = {};
-
-window.showPanel = function(name){
-  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
-  document.getElementById('panel-'+name).classList.add('active');
-  document.querySelectorAll('.nav button').forEach(b=>b.classList.remove('active'));
-  document.querySelector('.nav button[data-panel="'+name+'"]').classList.add('active');
-};
-
-window.doLogin = async function(){
-  const email = document.getElementById('loginEmail').value.trim();
-  const pass = document.getElementById('loginPassword').value;
-  const errEl = document.getElementById('loginError');
-  const noticeEl = document.getElementById('loginNotice');
-  errEl.style.display = 'none';
-  noticeEl.style.display = 'none';
-
-  const { error } = await supabase.auth.signInWithPassword({ email, password: pass });
-  if(error){
-    errEl.textContent = error.message;
-    errEl.style.display = 'block';
-  }
-};
-window.doLogout = function(){ supabase.auth.signOut(); };
-
-supabase.auth.onAuthStateChange((event, session) => {
-  if(session && session.user){
-    document.getElementById('loginScreen').style.display = 'none';
-    document.getElementById('dashboard').style.display = 'block';
-    document.getElementById('whoText').textContent = 'Signed in as ' + session.user.email;
-    loadAllTables();
-  } else {
-    document.getElementById('loginScreen').style.display = 'flex';
-    document.getElementById('dashboard').style.display = 'none';
-  }
-});
-
-/* Compresses images before upload so phone photos (often 5–10MB) don't
-   slow the app to a crawl. PDFs and already-small images pass through untouched. */
-async function compressImage(file, maxDim, quality){
-  maxDim = maxDim || 1600;
-  quality = quality || 0.82;
-  if(!file || !file.type || file.type.indexOf('image/') !== 0) return file;
-  try{
-    const bitmap = await createImageBitmap(file);
-    const longest = Math.max(bitmap.width, bitmap.height);
-    if(longest <= maxDim && file.size < 600*1024) return file;
-    const scale = Math.min(1, maxDim / longest);
-    const canvas = document.createElement('canvas');
-    canvas.width = Math.max(1, Math.round(bitmap.width * scale));
-    canvas.height = Math.max(1, Math.round(bitmap.height * scale));
-    const ctx = canvas.getContext('2d');
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-    if(bitmap.close) bitmap.close();
-    const blob = await new Promise(function(res){ canvas.toBlob(res, 'image/jpeg', quality); });
-    if(!blob) return file;
-    const baseName = (file.name || 'photo').replace(/\.[a-zA-Z0-9]+$/, '').replace(/[^a-zA-Z0-9.\-_]/g, '_');
-    return new File([blob], baseName + '.jpg', { type: 'image/jpeg' });
-  }catch(e){
-    return file; // if anything goes wrong, upload the original
-  }
-}
-function esc(s){ const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
-
-async function loadAllTables(){
-  for(const key of Object.keys(SCHEMAS)){ await renderTable(key); }
-  await loadSettingsForm();
-  await renderPrayerRequests();
-  await renderPhotosAdmin();
-  await renderSlidesAdmin();
-  await loadSignupsEventOptions();
-  await renderPendingPhotos();
-  await renderChatMessages();
+function esc(value: unknown): string {
+  const map: Record<string, string> = {
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;",
+  };
+  return String(value ?? "").replace(/[&<>"']/g, (c) => map[c]);
 }
 
-const FILE_BUCKETS = { leadership: 'profile-photos', deacons: 'profile-photos', directory: 'profile-photos', events: 'event-images' };
-
-async function renderTable(key){
-  const orderCol = key === 'beliefs' ? 'order_num' : 'created_at';
-  const { data: items, error } = await supabase.from(key).select('*').order(orderCol, { ascending: key === 'beliefs' });
-  const tbody = document.getElementById('tbl-'+key);
-  const cols = TABLE_COLS[key];
-  const schemaTypes = {};
-  SCHEMAS[key].forEach(([k,,type]) => { schemaTypes[k] = type; });
-  if(error || !items || items.length === 0){
-    tbody.innerHTML = '<tr><td colspan="'+(cols.length+1)+'" class="empty-note">Nothing added yet.</td></tr>';
-    return;
-  }
-  tbody.innerHTML = items.map(item => {
-    let cells = cols.map(c => {
-      if(schemaTypes[c] === 'file'){
-        return '<td>'+(item[c] ? '<img src="'+esc(item[c])+'" style="width:32px;height:32px;object-fit:cover;border-radius:50%;">' : '<span class="empty-note" style="padding:0;">—</span>')+'</td>';
-      }
-      if(schemaTypes[c] === 'checkbox'){
-        return '<td>'+(item[c] ? 'Yes' : 'No')+'</td>';
-      }
-      return '<td>'+esc(item[c])+'</td>';
-    }).join('');
-    return '<tr>'+cells+'<td class="actions">'
-      + (key === 'announcements' ? '<button class="btn small gold" onclick="createEventFromAnnouncement(\''+item.id.replace(/'/g,"\\'")+'\')">Create event</button>' : '')
-      + '<button class="btn small ghost" onclick="editItem(\''+key+'\',\''+item.id+'\')">Edit</button>'
-      + '<button class="btn small danger" onclick="deleteItem(\''+key+'\',\''+item.id+'\')">Delete</button>'
-      + '</td></tr>';
-  }).join('');
-}
-
-window.openForm = function(key, editId, existingData){
-  currentEditId[key] = editId || null;
-  currentEditData[key] = existingData || null;
-  const schema = SCHEMAS[key];
-  const container = document.getElementById('form-'+key);
-  const data = existingData || {};
-  let fieldsHtml = schema.map(([k,label,type]) => {
-    if(type === 'file'){
-      const preview = data[k] ? '<img src="'+esc(data[k])+'" style="width:56px;height:56px;object-fit:cover;border-radius:50%;display:block;margin-bottom:6px;">' : '';
-      return '<div class="field"><label>'+label+'</label>'+preview+'<input type="file" accept="image/*" id="f_'+key+'_'+k+'"></div>';
-    }
-    if(type === 'checkbox'){
-      return '<div class="field"><label><input type="checkbox" id="f_'+key+'_'+k+'" style="width:auto; margin-right:6px;" '+(data[k] ? 'checked' : '')+'>'+label+'</label></div>';
-    }
-    const val = esc(data[k]);
-    if(type === 'textarea'){
-      return '<div class="field"><label>'+label+'</label><textarea id="f_'+key+'_'+k+'">'+val+'</textarea></div>';
-    }
-    return '<div class="field"><label>'+label+'</label><input type="'+type+'" id="f_'+key+'_'+k+'" value="'+val+'"></div>';
-  }).join('');
-  let extraHtml = '';
-  if(key === 'leadership' || key === 'deacons'){
-    extraHtml = '<div class="field"><label><input type="checkbox" id="f_'+key+'_alsoDirectory" style="width:auto; margin-right:6px;">Also list this person in the Church Directory</label>'
-      + '<div style="font-size:11.5px; color:var(--ink-soft); margin-top:4px;">Adds a new Directory entry each time this is checked and saved — leave it unchecked when editing someone already listed there, to avoid duplicates.</div></div>';
-  }
-  if(key === 'directory'){
-    extraHtml += '<div class="card-desc" style="color:var(--ink-soft); margin-top:10px;">Heads up: the directory is visible to anyone with the app link — only add details the person is comfortable sharing publicly.</div>';
-  }
-  container.innerHTML = '<div class="form-card"><h3>'+(editId ? 'Edit' : 'Add new')+'</h3>'
-    + fieldsHtml
-    + extraHtml
-    + '<button class="btn gold" onclick="saveItem(\''+key+'\')">Save</button> '
-    + '<button class="btn ghost" onclick="closeForm(\''+key+'\')">Cancel</button>'
-    + '<div class="status-msg" id="formStatus_'+key+'"></div></div>';
-  container.scrollIntoView({ behavior: 'smooth', block: 'center' });
-};
-window.closeForm = function(key){ document.getElementById('form-'+key).innerHTML = ''; };
-
-window.editItem = async function(key, id){
-  const { data, error } = await supabase.from(key).select('*').eq('id', id).single();
-  if(!error && data) window.openForm(key, id, data);
-};
-
-window.deleteItem = async function(key, id){
-  if(!confirm('Delete this entry?')) return;
-  await supabase.from(key).delete().eq('id', id);
-  renderTable(key);
-};
-
-window.saveItem = async function(key){
-  const schema = SCHEMAS[key];
-  const values = {};
-  const statusEl = document.getElementById('formStatus_'+key);
-  try{
-    for(const [k,,type] of schema){
-      if(type === 'file'){
-        const fileInput = document.getElementById('f_'+key+'_'+k);
-        const rawFile = fileInput.files[0];
-        if(rawFile){
-          const file = await compressImage(rawFile);
-          const path = key+'/'+k+'_'+Date.now()+'_'+file.name.replace(/[^a-zA-Z0-9.\-_]/g,'_');
-          const bucket = FILE_BUCKETS[key] || 'profile-photos';
-          const { error: upErr } = await supabase.storage.from(bucket).upload(path, file);
-          if(upErr) throw upErr;
-          const { data: pub } = supabase.storage.from(bucket).getPublicUrl(path);
-          values[k] = pub.publicUrl;
-        } else {
-          values[k] = (currentEditData[key] && currentEditData[key][k]) ? currentEditData[key][k] : null;
-        }
-      } else if(type === 'checkbox'){
-        const cb = document.getElementById('f_'+key+'_'+k);
-        values[k] = cb ? cb.checked : false;
-      } else {
-        values[k] = document.getElementById('f_'+key+'_'+k).value.trim();
-      }
-    }
-    if('order_num' in values){
-      values.order_num = values.order_num === '' ? 0 : parseInt(values.order_num, 10) || 0;
+serve(async (req) => {
+  try {
+    const payload = await req.json();
+    const { type, table, record } = payload ?? {};
+    if (!record) {
+      return Response.json({ ok: true, skipped: "no record" });
     }
 
-    let error;
-    if(currentEditId[key]){
-      ({ error } = await supabase.from(key).update(values).eq('id', currentEditId[key]));
-    } else {
-      ({ error } = await supabase.from(key).insert(values));
-    }
-    if(error) throw error;
-
-    if(key === 'leadership' || key === 'deacons'){
-      const alsoDirectory = document.getElementById('f_'+key+'_alsoDirectory');
-      if(alsoDirectory && alsoDirectory.checked){
-        const { error: dirErr } = await supabase.from('directory').insert({
-          name: values.name,
-          role: values.role,
-          phone: values.phone,
-          initials: values.initials,
-          photo_url: values.photo_url
-        });
-        if(dirErr) console.error('directory add failed', dirErr);
-      }
-    }
-
-    let hasWarning = false;
-    if(key === 'sermons' && values.video_url && values.video_url.includes('/share/')){
-      statusEl.textContent = 'Saved — but that looks like a Facebook "share" link (/share/v/...), which usually won\'t play in the app. Open the video on its own page and copy that link instead (it should contain "/videos/").';
-      statusEl.className = 'status-msg err';
-      hasWarning = true;
-    } else {
-      statusEl.textContent = 'Saved.';
-      statusEl.className = 'status-msg ok';
-    }
-    statusEl.style.display = 'block';
-    renderTable(key);
-    if(key === 'leadership' || key === 'deacons') renderTable('directory');
-    if(key === 'events'){ loadSignupsEventOptions(); renderSlidesAdmin(); }
-    if(!hasWarning) setTimeout(() => window.closeForm(key), 700);
-  }catch(e){
-    statusEl.textContent = 'Could not save — check you are signed in and try again.';
-    statusEl.className = 'status-msg err';
-    statusEl.style.display = 'block';
-  }
-};
-
-async function loadSettingsForm(){
-  const { data: s } = await supabase.from('settings').select('*').eq('id',1).single();
-  if(!s) return;
-  document.getElementById('s_sundaySchool').value = s.sunday_school_time || '';
-  document.getElementById('s_sundayWorship').value = s.sunday_worship_time || '';
-  document.getElementById('s_wed').value = s.wednesday_times || '';
-  document.getElementById('s_address').value = s.address_line || '';
-  document.getElementById('s_phone').value = s.phone || '';
-  document.getElementById('s_isLive').checked = !!s.is_live;
-  document.getElementById('s_liveTitle').value = s.live_title || '';
-  document.getElementById('s_liveSub').value = s.live_sub || '';
-  document.getElementById('s_liveVideoUrl').value = s.live_video_url || '';
-  document.getElementById('s_givingUrl').value = s.giving_url || '';
-  document.getElementById('s_facebookUrl').value = s.facebook_url || '';
-  document.getElementById('s_instagramUrl').value = s.instagram_url || '';
-  document.getElementById('s_youtubeUrl').value = s.youtube_url || '';
-  document.getElementById('s_prayerEmail').value = s.prayer_notification_email || '';
-  document.getElementById('s_calendarUrl').value = s.google_calendar_url || '';
-}
-window.saveSettings = async function(){
-  const statusEl = document.getElementById('settingsStatus');
-  const liveVideoUrl = document.getElementById('s_liveVideoUrl').value.trim();
-  try{
-    const { error } = await supabase.from('settings').update({
-      sunday_school_time: document.getElementById('s_sundaySchool').value.trim(),
-      sunday_worship_time: document.getElementById('s_sundayWorship').value.trim(),
-      wednesday_times: document.getElementById('s_wed').value.trim(),
-      address_line: document.getElementById('s_address').value.trim(),
-      phone: document.getElementById('s_phone').value.trim(),
-      is_live: document.getElementById('s_isLive').checked,
-      live_title: document.getElementById('s_liveTitle').value.trim(),
-      live_sub: document.getElementById('s_liveSub').value.trim(),
-      live_video_url: liveVideoUrl,
-      giving_url: document.getElementById('s_givingUrl').value.trim(),
-      facebook_url: document.getElementById('s_facebookUrl').value.trim(),
-      instagram_url: document.getElementById('s_instagramUrl').value.trim(),
-      youtube_url: document.getElementById('s_youtubeUrl').value.trim(),
-      prayer_notification_email: document.getElementById('s_prayerEmail').value.trim(),
-      google_calendar_url: document.getElementById('s_calendarUrl').value.trim()
-    }).eq('id',1);
-    if(error) throw error;
-    if(liveVideoUrl.includes('fb.watch')){
-      statusEl.textContent = 'Saved — but that looks like a shortened fb.watch link, which won\'t play in the app. Open the video on its own page and copy the full link from the address bar instead (it should contain "/videos/").';
-      statusEl.className = 'status-msg err';
-    } else {
-      statusEl.textContent = 'Saved.';
-      statusEl.className = 'status-msg ok';
-    }
-    statusEl.style.display = 'block';
-  }catch(e){
-    statusEl.textContent = 'Could not save — check you are signed in and try again.';
-    statusEl.className = 'status-msg err';
-    statusEl.style.display = 'block';
-  }
-};
-
-let allPrayerItems = [];
-function renderPrayerRows(items){
-  const tbody = document.getElementById('tbl-prayers');
-  if(!items || items.length === 0){
-    tbody.innerHTML = '<tr><td colspan="6" class="empty-note">No prayer requests found.</td></tr>';
-    return;
-  }
-  tbody.innerHTML = items.map(p => {
-    const when = p.created_at ? new Date(p.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : '—';
-    const sharing = p.privacy === 'shareable' ? 'OK to share' : 'Private';
-    return '<tr><td>'+esc(p.name)+'</td><td style="max-width:260px;">'+esc(p.request)+'</td><td>'+sharing+'</td><td>'+when+'</td>'
-      + '<td><input type="checkbox" '+(p.handled ? 'checked' : '')+' onchange="togglePrayerHandled(\''+p.id+'\', this.checked)"></td>'
-      + '<td class="actions"><button class="btn small danger" onclick="deletePrayer(\''+p.id+'\')">Delete</button></td></tr>';
-  }).join('');
-}
-async function renderPrayerRequests(){
-  const { data: items, error } = await supabase.from('prayer_requests').select('*').order('created_at', { ascending:false });
-  allPrayerItems = (error || !items) ? [] : items;
-  renderPrayerRows(allPrayerItems);
-}
-window.filterPrayerRequests = function(){
-  const q = document.getElementById('prayerSearchInput').value.trim().toLowerCase();
-  const filtered = q ? allPrayerItems.filter(p => (p.name||'').toLowerCase().includes(q)) : allPrayerItems;
-  renderPrayerRows(filtered);
-};
-
-window.togglePrayerHandled = async function(id, handled){
-  await supabase.from('prayer_requests').update({ handled }).eq('id', id);
-};
-
-window.deletePrayer = async function(id){
-  if(!confirm('Delete this prayer request?')) return;
-  await supabase.from('prayer_requests').delete().eq('id', id);
-  renderPrayerRequests();
-};
-
-/* --- Photos --- */
-window.uploadPhoto = async function(){
-  const fileInput = document.getElementById('photoFileInput');
-  const caption = document.getElementById('photoCaptionInput').value.trim();
-  const statusEl = document.getElementById('photoUploadStatus');
-  const rawPhoto = fileInput.files[0];
-  const file = rawPhoto ? await compressImage(rawPhoto) : null;
-  if(!file){
-    statusEl.textContent = 'Choose an image file first.';
-    statusEl.className = 'status-msg err';
-    statusEl.style.display = 'block';
-    return;
-  }
-  statusEl.textContent = 'Uploading...';
-  statusEl.className = 'status-msg ok';
-  statusEl.style.display = 'block';
-  try{
-    const path = Date.now()+'_'+file.name.replace(/[^a-zA-Z0-9.\-_]/g,'_');
-    const { error: upErr } = await supabase.storage.from('photos').upload(path, file);
-    if(upErr) throw upErr;
-    const { data: pub } = supabase.storage.from('photos').getPublicUrl(path);
-    const { error: insErr } = await supabase.from('photos').insert({ url: pub.publicUrl, caption });
-    if(insErr) throw insErr;
-    statusEl.textContent = 'Uploaded.';
-    fileInput.value = '';
-    document.getElementById('photoCaptionInput').value = '';
-    renderPhotosAdmin();
-  }catch(e){
-    statusEl.textContent = 'Upload failed — check you are signed in and try again.';
-    statusEl.className = 'status-msg err';
-    statusEl.style.display = 'block';
-  }
-};
-
-async function renderPhotosAdmin(){
-  const { data: items, error } = await supabase.from('photos').select('*').order('created_at', { ascending:false });
-  const grid = document.getElementById('photosAdminGrid');
-  if(error || !items || items.length === 0){
-    grid.innerHTML = '<div class="empty-note">No photos uploaded yet.</div>';
-    return;
-  }
-  grid.innerHTML = items.map(p =>
-    '<div class="photo-admin-item"><img src="'+esc(p.url)+'" alt="'+esc(p.caption||'')+'">'
-    + '<button onclick="deletePhoto(\''+p.id+'\')">Delete</button></div>'
-  ).join('');
-}
-
-window.deletePhoto = async function(id){
-  if(!confirm('Delete this photo?')) return;
-  await supabase.from('photos').delete().eq('id', id);
-  renderPhotosAdmin();
-};
-
-/* --- Announcement slides: a gallery of slides that rotate in the app.
-   Each slide can optionally link to an event. --- */
-function extensionForFile(file){
-  if(file.type === 'application/pdf') return 'pdf';
-  if(file.type.startsWith('image/')){
-    const m = file.name.match(/\.([a-zA-Z0-9]+)$/);
-    const ext = m ? m[1].toLowerCase() : 'jpg';
-    return ['jpg','jpeg','png','gif','webp'].includes(ext) ? ext : 'jpg';
-  }
-  return null;
-}
-
-/* --- .pptx support: a .pptx is a zip — pull the embedded photos out of
-   ppt/media/ and feed them through the normal image pipeline. --- */
-async function extractPptxImages(pptxFile){
-  const zip = await JSZip.loadAsync(pptxFile);
-  const names = Object.keys(zip.files)
-    .filter(n => /^ppt\/media\//i.test(n) && /\.(png|jpe?g|gif)$/i.test(n))
-    .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
-  const out = [];
-  const base = pptxFile.name.replace(/\.pptx$/i, '');
-  for(const name of names){
-    const blob = await zip.files[name].async('blob');
-    const ext = name.split('.').pop().toLowerCase();
-    const mime = ext === 'png' ? 'image/png' : ext === 'gif' ? 'image/gif' : 'image/jpeg';
-    out.push(new File([blob], base+'-'+name.split('/').pop(), { type: mime }));
-  }
-  return out;
-}
-
-window.handleSlidesFiles = async function(fileList){
-  let files = Array.from(fileList || []);
-  if(files.length === 0) return;
-
-  const statusEl = document.getElementById('slidesUploadStatus');
-  statusEl.className = 'status-msg ok';
-  statusEl.style.display = 'block';
-
-  /* Expand any .pptx files into their embedded images before anything else. */
-  const expanded = [];
-  for(const file of files){
-    if(/\.pptx$/i.test(file.name)){
-      statusEl.textContent = 'Reading '+file.name+'...';
-      try{
-        const imgs = await extractPptxImages(file);
-        if(imgs.length === 0){
-          statusEl.className = 'status-msg err';
-          statusEl.textContent = 'No images found inside '+file.name+'.';
-          return;
-        }
-        imgs.forEach(f => expanded.push(f));
-      }catch(e){
-        statusEl.className = 'status-msg err';
-        statusEl.textContent = 'Could not read '+file.name+' — is it a valid .pptx file?';
-        return;
-      }
-    }else if(/\.ppt$/i.test(file.name)){
-      statusEl.className = 'status-msg err';
-      statusEl.textContent = file.name+' is an old-style .ppt file, which can\'t be read directly. Re-save it as .pptx in PowerPoint and try again.';
-      return;
-    }else{
-      expanded.push(file);
-    }
-  }
-  files = expanded;
-  if(files.length === 0) return;
-
-  const { count: existingCount } = await supabase.from('announcement_slides').select('*', { count: 'exact', head: true });
-  if(existingCount && existingCount > 0){
-    const replace = confirm(
-      'You have '+existingCount+' existing slide(s).\n\n'
-      + 'Click OK to DELETE them and replace with these '+files.length+' new file(s).\n'
-      + 'Click Cancel to add these as additional slides alongside the existing ones.'
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
-    if(replace){
-      await clearAllSlides(true);
-    }
-  }
 
-  let uploaded = 0, failed = 0;
-  for(const file of files){
-    const ext = extensionForFile(file);
-    if(!ext){ failed++; continue; }
-    statusEl.textContent = 'Uploading '+(uploaded+failed+1)+' of '+files.length+'...';
-    try{
-      const uploadFile = await compressImage(file);
-      const upExt = uploadFile.type === 'image/jpeg' ? 'jpg' : ext;
-      const path = Date.now()+'_'+Math.random().toString(36).slice(2)+'.'+upExt;
-      const { error: upErr } = await supabase.storage.from('announcement-slides').upload(path, uploadFile);
-      if(upErr) throw upErr;
-      const { data: pub } = supabase.storage.from('announcement-slides').getPublicUrl(path);
-      const { error: dbErr } = await supabase.from('announcement_slides').insert({
-        url: pub.publicUrl,
-        type: ext === 'pdf' ? 'pdf' : 'image'
-      });
-      if(dbErr) throw dbErr;
-      uploaded++;
-    }catch(e){
-      failed++;
-    }
-  }
-  statusEl.textContent = uploaded+' slide'+(uploaded===1?'':'s')+' uploaded'+(failed?', '+failed+' failed':'')+'.';
-  document.getElementById('slidesFileInput').value = '';
-  renderSlidesAdmin();
-};
+    let to: string | null = null;
+    let subject = "";
+    let html = "";
 
-window.clearAllSlides = async function(skipConfirm){
-  const { data: slides } = await supabase.from('announcement_slides').select('id,url');
-  if(!slides || slides.length === 0){
-    if(!skipConfirm) alert('There are no slides to clear.');
-    return;
-  }
-  if(!skipConfirm && !confirm('Delete all '+slides.length+' current slide(s)? This can\'t be undone.')) return;
+    if (table === "prayer_requests" && type === "INSERT") {
+      const { data: settings } = await supabase
+        .from("settings")
+        .select("prayer_notification_email")
+        .eq("id", 1)
+        .single();
+      to = settings?.prayer_notification_email?.trim() || null;
+      if (!to) return Response.json({ ok: true, skipped: "no prayer email configured" });
 
-  const paths = slides.map(s => {
-    const m = s.url.match(/announcement-slides\/(.+)$/);
-    return m ? decodeURIComponent(m[1]) : null;
-  }).filter(Boolean);
-  if(paths.length) await supabase.storage.from('announcement-slides').remove(paths);
-  await supabase.from('announcement_slides').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-  renderSlidesAdmin();
-};
+      const shareable = record.privacy === "shareable";
+      subject = `New prayer request from ${record.name || "Anonymous"}`;
+      html =
+        `<h2>New prayer request</h2>` +
+        `<p><strong>From:</strong> ${esc(record.name || "Anonymous")}</p>` +
+        `<p><strong>Sharing:</strong> ${
+          shareable ? "OK to share with the church family" : "PRIVATE &mdash; prayer team only"
+        }</p>` +
+        `<p><strong>Request:</strong></p><p>${esc(record.request).replace(/\n/g, "<br>")}</p>`;
+    } else if (table === "event_signups" && type === "INSERT") {
+      const { data: event } = await supabase
+        .from("events")
+        .select("title, notify_email")
+        .eq("id", record.event_id)
+        .single();
+      to = event?.notify_email?.trim() || null;
+      if (!to) return Response.json({ ok: true, skipped: "no notify email on event" });
 
-async function renderSlidesAdmin(){
-  const { data: slides, error } = await supabase.from('announcement_slides').select('*').order('created_at', { ascending:true });
-  const { data: events } = await supabase.from('events').select('id,title').order('event_date', { ascending:false });
-  const grid = document.getElementById('slidesAdminGrid');
-  const countLabel = document.getElementById('slidesCountLabel');
-  if(countLabel) countLabel.textContent = (slides||[]).length;
-  if(error || !slides || slides.length === 0){
-    grid.innerHTML = '<div class="empty-note">No slides uploaded yet.</div>';
-    return;
-  }
-  const eventOptions = (events||[]).map(e => '<option value="'+e.id+'">'+esc(e.title)+'</option>').join('');
-  grid.innerHTML = slides.map(s => {
-    const thumb = s.type === 'pdf'
-      ? '<div class="slide-thumb" style="display:flex; align-items:center; justify-content:center; font-size:10px; color:var(--ink-soft); font-weight:700;">PDF</div>'
-      : '<img class="slide-thumb" src="'+esc(s.url)+'">';
-    return '<div class="slide-admin-row">'+thumb
-      + '<select onchange="setSlideEvent(\''+s.id+'\', this.value)"><option value="">Not linked to an event</option>'+eventOptions.replace('value="'+s.linked_event_id+'"','value="'+s.linked_event_id+'" selected')+'</select>'
-      + '<button class="btn small danger" onclick="deleteSlide(\''+s.id+'\')">Delete</button>'
-      + '</div>';
-  }).join('');
-}
+      subject = `New sign-up: ${event.title}`;
+      html =
+        `<h2>New event sign-up</h2>` +
+        `<p><strong>Event:</strong> ${esc(event.title)}</p>` +
+        `<p><strong>Name:</strong> ${esc(record.name)}</p>` +
+        `<p><strong>Email:</strong> ${esc(record.email)}</p>` +
+        `<p><strong>Phone:</strong> ${esc(record.phone)}</p>` +
+        `<p><strong>Guests:</strong> ${esc(record.guests)}</p>` +
+        `<p><strong>Notes:</strong> ${esc(record.notes)}</p>`;
+    } else if (table === "chat_messages" && type === "INSERT") {
+      const { data: settings } = await supabase
+        .from("settings")
+        .select("prayer_notification_email")
+        .eq("id", 1)
+        .single();
+      to = settings?.prayer_notification_email?.trim() || null;
+      if (!to) return Response.json({ ok: true, skipped: "no staff email configured" });
 
-window.setSlideEvent = async function(id, eventId){
-  await supabase.from('announcement_slides').update({ linked_event_id: eventId || null }).eq('id', id);
-};
+      subject = `New chat message in ${record.room_label || "a chat room"}`;
+      html =
+        `<h2>New chat message</h2>` +
+        `<p><strong>Room:</strong> ${esc(record.room_label || record.room_id || "")}</p>` +
+        `<p><strong>From:</strong> ${esc(record.display_name || "Anonymous")}</p>` +
+        `<p><strong>Message:</strong></p><p>${esc(record.message).replace(/\n/g, "<br>")}</p>` +
+        `<p style="color:#888;font-size:12px;">Review or remove it in the staff dashboard under Chat.</p>`;
+    } else if (table === "directory" && type === "UPDATE") {
+      to = "4wpittman@gmail.com";
 
-window.deleteSlide = async function(id){
-  if(!confirm('Delete this slide?')) return;
-  await supabase.from('announcement_slides').delete().eq('id', id);
-  renderSlidesAdmin();
-};
-
-(function setupSlidesDropZone(){
-  const zone = document.getElementById('slidesDropZone');
-  if(!zone) return;
-  ['dragenter','dragover'].forEach(evt => zone.addEventListener(evt, (e) => {
-    e.preventDefault(); e.stopPropagation();
-    zone.classList.add('dragover');
-  }));
-  ['dragleave','drop'].forEach(evt => zone.addEventListener(evt, (e) => {
-    e.preventDefault(); e.stopPropagation();
-    zone.classList.remove('dragover');
-  }));
-  zone.addEventListener('drop', (e) => {
-    if(e.dataTransfer.files.length) window.handleSlidesFiles(e.dataTransfer.files);
-  });
-})();
-
-/* --- Bulk CSV import: rows matching an existing record (by name/title) update it;
-   everything else is added as new. Blank cells never overwrite existing data. --- */
-const BULK_IMPORT_MATCH_FIELD = { directory: 'name', groups: 'title' };
-
-window.handleBulkImport = async function(key, file){
-  if(!file) return;
-  const statusEl = document.getElementById(key+'ImportStatus');
-  statusEl.style.display = 'block';
-  statusEl.className = 'status-msg ok';
-  statusEl.textContent = 'Reading file...';
-
-  const text = await file.text();
-  const parsed = Papa.parse(text, { header: true, skipEmptyLines: true });
-  if(parsed.errors && parsed.errors.length){
-    statusEl.className = 'status-msg err';
-    statusEl.textContent = 'Could not read that CSV — check it\'s a plain comma-separated file.';
-    return;
-  }
-
-  const matchField = BULK_IMPORT_MATCH_FIELD[key];
-  const allowedFields = SCHEMAS[key].map(([k]) => k);
-
-  const { data: existing, error: fetchErr } = await supabase.from(key).select('*');
-  if(fetchErr){
-    statusEl.className = 'status-msg err';
-    statusEl.textContent = 'Could not load existing records — try again.';
-    return;
-  }
-  const existingByMatch = {};
-  (existing||[]).forEach(row => {
-    const val = (row[matchField]||'').trim().toLowerCase();
-    if(val) existingByMatch[val] = row;
-  });
-
-  let added = 0, updated = 0, skipped = 0;
-  for(const rawRow of parsed.data){
-    const matchVal = (rawRow[matchField]||'').trim();
-    if(!matchVal){ skipped++; continue; }
-    const matchKey = matchVal.toLowerCase();
-    const existingRow = existingByMatch[matchKey];
-
-    const payload = {};
-    allowedFields.forEach(f => {
-      const cell = (rawRow[f]||'').trim();
-      if(cell !== ''){
-        payload[f] = cell;
-      } else if(!existingRow){
-        payload[f] = null;
+      subject = `Photo awaiting approval: ${record.name || "a member"}`;
+      let photosHtml = "";
+      if(record.pending_photo_url){
+        photosHtml += `<p><strong>${esc(record.name || "Member")}:</strong><br><img src="${esc(record.pending_photo_url)}" style="max-width:320px;border-radius:10px;"></p>`;
       }
-      // if cell is blank AND a matching row exists, omit the field entirely
-      // so the update doesn't overwrite the existing value with blank
+      if(record.pending_spouse_photo_url){
+        photosHtml += `<p><strong>${esc(record.spouse_name || "Spouse")} (spouse):</strong><br><img src="${esc(record.pending_spouse_photo_url)}" style="max-width:320px;border-radius:10px;"></p>`;
+      }
+      html =
+        `<h2>New directory photo submission</h2>` +
+        photosHtml +
+        `<p style="color:#888;font-size:12px;">Approve or reject it in the staff dashboard under Directory -> Photos waiting for approval.</p>`;
+    } else {
+      return Response.json({ ok: true, skipped: "unhandled table" });
+    }
+
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${Deno.env.get("RESEND_API_KEY")}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: Deno.env.get("FROM_EMAIL") || "SSBC App <onboarding@resend.dev>",
+        to: [to],
+        subject,
+        html,
+      }),
     });
 
-    if(existingRow){
-      const { error } = await supabase.from(key).update(payload).eq('id', existingRow.id);
-      if(!error) updated++; else skipped++;
-    } else {
-      const { error } = await supabase.from(key).insert(payload);
-      if(!error) added++; else skipped++;
+    if (!res.ok) {
+      throw new Error(`Resend error ${res.status}: ${await res.text()}`);
     }
+    return Response.json({ ok: true });
+  } catch (e) {
+    console.error(e);
+    return Response.json({ ok: false, error: String(e) }, { status: 500 });
   }
-
-  statusEl.className = 'status-msg ok';
-  statusEl.textContent = 'Done — '+added+' added, '+updated+' updated'+(skipped ? ', '+skipped+' skipped' : '')+'.';
-  document.getElementById(key+'FileInput').value = '';
-  renderTable(key);
-};
-
-function setupDropZone(zoneId, onFile){
-  const zone = document.getElementById(zoneId);
-  if(!zone) return;
-  ['dragenter','dragover'].forEach(evt => zone.addEventListener(evt, (e) => {
-    e.preventDefault(); e.stopPropagation();
-    zone.classList.add('dragover');
-  }));
-  ['dragleave','drop'].forEach(evt => zone.addEventListener(evt, (e) => {
-    e.preventDefault(); e.stopPropagation();
-    zone.classList.remove('dragover');
-  }));
-  zone.addEventListener('drop', (e) => {
-    const file = e.dataTransfer.files[0];
-    if(file) onFile(file);
-  });
-}
-setupDropZone('groupsDropZone', (file) => window.handleBulkImport('groups', file));
-setupDropZone('directoryDropZone', (file) => window.handleBulkImport('directory', file));
-
-/* --- Sign-ups: pick an event, see who signed up for it --- */
-async function loadSignupsEventOptions(){
-  const { data: events } = await supabase.from('events').select('id,title,signup_enabled').eq('signup_enabled', true).order('event_date', { ascending:false });
-  const sel = document.getElementById('signupsEventSelect');
-  if(!events || events.length === 0){
-    sel.innerHTML = '<option value="">No events with sign-up enabled</option>';
-    document.getElementById('tbl-signups').innerHTML = '<tr><td colspan="7" class="empty-note">Enable "sign-up sheet" on an event first.</td></tr>';
-    return;
-  }
-  sel.innerHTML = events.map(e => '<option value="'+e.id+'">'+esc(e.title)+'</option>').join('');
-  loadSignupsForEvent(sel.value);
-}
-window.loadSignupsForEvent = async function(eventId){
-  const tbody = document.getElementById('tbl-signups');
-  if(!eventId){
-    tbody.innerHTML = '<tr><td colspan="7" class="empty-note">Choose an event above.</td></tr>';
-    return;
-  }
-  const { data: items, error } = await supabase.from('event_signups').select('*').eq('event_id', eventId).order('created_at', { ascending:false });
-  if(error || !items || items.length === 0){
-    tbody.innerHTML = '<tr><td colspan="7" class="empty-note">No sign-ups yet for this event.</td></tr>';
-    return;
-  }
-  tbody.innerHTML = items.map(s => {
-    const when = s.created_at ? new Date(s.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric'}) : '—';
-    return '<tr><td>'+esc(s.name)+'</td><td>'+esc(s.email)+'</td><td>'+esc(s.phone)+'</td><td>'+esc(s.guests)+'</td><td style="max-width:200px;">'+esc(s.notes)+'</td><td>'+when+'</td>'
-      + '<td class="actions"><button class="btn small danger" onclick="deleteSignup(\''+s.id+'\',\''+eventId+'\')">Delete</button></td></tr>';
-  }).join('');
-};
-window.deleteSignup = async function(id, eventId){
-  if(!confirm('Delete this sign-up?')) return;
-  await supabase.from('event_signups').delete().eq('id', id);
-  loadSignupsForEvent(eventId);
-};
-
-/* --- Directory self-submitted photos: nothing goes public until approved --- */
-async function renderPendingPhotos(){
-  const { data: items, error } = await supabase.from('directory').select('*').not('pending_photo_url', 'is', null);
-  const card = document.getElementById('pendingPhotosCard');
-  const grid = document.getElementById('pendingPhotosGrid');
-  if(error || !items || items.length === 0){
-    card.style.display = 'none';
-    return;
-  }
-  card.style.display = 'block';
-  grid.innerHTML = items.map(p =>
-    '<div class="pending-photo-row"><img src="'+esc(p.pending_photo_url)+'">'
-    + '<div class="ppr-name">'+esc(p.name)+'</div>'
-    + '<button class="btn small gold" onclick="approvePendingPhoto(\''+p.id+'\')">Approve</button>'
-    + '<button class="btn small danger" onclick="rejectPendingPhoto(\''+p.id+'\')">Reject</button>'
-    + '</div>'
-  ).join('');
-}
-window.approvePendingPhoto = async function(id){
-  const { data: row } = await supabase.from('directory').select('pending_photo_url').eq('id', id).single();
-  if(!row) return;
-  await supabase.from('directory').update({ photo_url: row.pending_photo_url, pending_photo_url: null }).eq('id', id);
-  renderPendingPhotos();
-  renderTable('directory');
-};
-window.rejectPendingPhoto = async function(id){
-  await supabase.from('directory').update({ pending_photo_url: null }).eq('id', id);
-  renderPendingPhotos();
-};
-
-window.createEventFromAnnouncement = async function(announcementId){
-  const { data: a, error } = await supabase.from('announcements').select('*').eq('id', announcementId).single();
-  if(error || !a) return;
-  showPanel('events');
-  window.openForm('events', null, { title: a.title });
-  const statusEl = document.getElementById('formStatus_events');
-  if(statusEl){
-    statusEl.textContent = 'Title filled in from that announcement — add a date, time, and location, then save.';
-    statusEl.className = 'status-msg ok';
-    statusEl.style.display = 'block';
-  }
-};
-
-/* --- Chat moderation --- */
-let allChatMessages = [];
-function renderChatRows(items){
-  const tbody = document.getElementById('tbl-chat');
-  if(!items || items.length === 0){
-    tbody.innerHTML = '<tr><td colspan="5" class="empty-note">No messages yet.</td></tr>';
-    return;
-  }
-  tbody.innerHTML = items.map(m => {
-    const when = m.created_at ? new Date(m.created_at).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}) : '—';
-    return '<tr><td>'+esc(m.room_label)+'</td><td>'+esc(m.display_name)+'</td><td style="max-width:280px;">'+esc(m.message)+'</td><td>'+when+'</td>'
-      + '<td class="actions"><button class="btn small danger" onclick="deleteChatMessage(\''+m.id+'\')">Delete</button></td></tr>';
-  }).join('');
-}
-async function renderChatMessages(){
-  const { data: items, error } = await supabase.from('chat_messages').select('*').order('created_at', { ascending:false }).limit(300);
-  allChatMessages = (error || !items) ? [] : items;
-  renderChatRows(allChatMessages);
-}
-window.filterChatMessages = function(){
-  const q = document.getElementById('chatSearchInput').value.trim().toLowerCase();
-  const filtered = q ? allChatMessages.filter(m => (m.display_name||'').toLowerCase().includes(q) || (m.message||'').toLowerCase().includes(q)) : allChatMessages;
-  renderChatRows(filtered);
-};
-window.deleteChatMessage = async function(id){
-  if(!confirm('Delete this message? It will disappear from the app immediately.')) return;
-  await supabase.from('chat_messages').delete().eq('id', id);
-  renderChatMessages();
-};
-</script>
-</body>
-</html>
+});
