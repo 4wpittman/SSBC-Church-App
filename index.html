@@ -981,12 +981,20 @@ function renderPersonRow(p, withContact, allowSelfUpload){
     familyHtml += '</div>';
   }
   if(allowSelfUpload){
-    // Photo state per member: no photo → upload prompt; pending → waiting text;
-    // approved photo → option to update (goes through approval again).
-    const photoControl = p.pending_photo_url
-      ? '<span style="font-size:11px; color:var(--ink-soft);">Photo submitted — pending staff review</span>'
-      : '<button id="selfPhotoBtn-'+p.id+'" onclick="event.stopPropagation(); promptSelfPhoto(\''+p.id+'\')" style="background:none; border:none; color:var(--brick); font-size:11.5px; font-weight:600; cursor:pointer; padding:0; font-family:inherit;">'
+    // Photo state per member: no photo → upload prompt(s); any pending → waiting text.
+    // Cards with a spouse get a second button for the spouse's photo.
+    const pendAny = p.pending_photo_url || p.pending_spouse_photo_url;
+    let photoControl;
+    if(pendAny){
+      photoControl = '<span style="font-size:11px; color:var(--ink-soft);">Photo submitted — pending staff review</span>';
+    }else{
+      photoControl = '<button id="selfPhotoBtn-'+p.id+'" onclick="event.stopPropagation(); promptSelfPhoto(\''+p.id+'\',\'member\')" style="background:none; border:none; color:var(--brick); font-size:11.5px; font-weight:600; cursor:pointer; padding:0; font-family:inherit;">'
         + (p.photo_url ? 'Update your photo' : 'Is this you? Upload your photo') + '</button>';
+      if(p.spouse_name){
+        photoControl += ' <span style="font-size:11px; color:var(--ink-soft);">·</span> <button id="selfPhotoSpouseBtn-'+p.id+'" onclick="event.stopPropagation(); promptSelfPhoto(\''+p.id+'\',\'spouse\')" style="background:none; border:none; color:var(--brick); font-size:11.5px; font-weight:600; cursor:pointer; padding:0; font-family:inherit;">'
+          + (p.spouse_photo_url ? 'Update spouse photo' : 'Upload spouse photo') + '</button>';
+      }
+    }
     familyHtml += '<div style="margin-top:8px; width:100%;">' + photoControl
       + '<span id="selfPhotoStatus-'+p.id+'" style="font-size:11px; color:var(--ink-soft); margin-left:6px;"></span>'
       + '</div>';
@@ -1226,9 +1234,12 @@ window.filterDirectory = function(){
   listEl.innerHTML = filtered.length ? filtered.map(p=>renderPersonRow(p,true,true)).join('') : '<div class="card-desc">No matches found.</div>';
 };
 
-window.promptSelfPhoto = function(directoryId){
+window.promptSelfPhoto = function(directoryId, target){
+  target = (target === 'spouse') ? 'spouse' : 'member';
   const person = (typeof allDirectoryItems !== 'undefined' ? allDirectoryItems : []).find(p => String(p.id) === String(directoryId));
-  const who = person ? person.name : 'this profile';
+  if(!person) return;
+  const who = target === 'spouse' ? (person.spouse_name + ' (spouse)') : person.name;
+  const pendingCol = target === 'spouse' ? 'pending_spouse_photo_url' : 'pending_photo_url';
   if(!confirm('Submit a photo for ' + who + '?\nIt will go to staff for approval before it appears.')) return;
   const input = document.createElement('input');
   input.type = 'file';
@@ -1244,10 +1255,14 @@ window.promptSelfPhoto = function(directoryId){
       const { error: upErr } = await supabase.storage.from('profile-photos').upload(path, uploadFile);
       if(upErr) throw upErr;
       const { data: pub } = supabase.storage.from('profile-photos').getPublicUrl(path);
-      const { error: dbErr } = await supabase.from('directory').update({ pending_photo_url: pub.publicUrl }).eq('id', directoryId);
+      const upd = {};
+      upd[pendingCol] = pub.publicUrl;
+      const { error: dbErr } = await supabase.from('directory').update(upd).eq('id', directoryId);
       if(dbErr) throw dbErr;
-      const btn = document.getElementById('selfPhotoBtn-'+directoryId);
-      if(btn) btn.style.display = 'none';
+      ['selfPhotoBtn-'+directoryId, 'selfPhotoSpouseBtn-'+directoryId].forEach(function(bid){
+        const b = document.getElementById(bid);
+        if(b) b.style.display = 'none';
+      });
       if(statusEl){ statusEl.textContent = 'Photo submitted — pending staff review.'; }
     }catch(e){
       if(statusEl){ statusEl.textContent = 'Something went wrong — please try again.'; }
