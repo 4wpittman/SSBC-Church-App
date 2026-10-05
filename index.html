@@ -942,9 +942,21 @@ window.toggleSermonVideo = function(containerId, sermonId){
   container.innerHTML = buildVideoEmbedHtml(url);
   container.style.display = 'block';
 };
+/* Photo lightbox: tap any profile photo to see it full-screen, tap anywhere to close. */
+window.openPhotoLightbox = function(src){
+  const lb = document.getElementById('photoLightbox');
+  const img = document.getElementById('photoLightboxImg');
+  if(!lb || !img || !src) return;
+  img.src = src;
+  lb.style.display = 'flex';
+};
+window.closePhotoLightbox = function(){
+  const lb = document.getElementById('photoLightbox');
+  if(lb) lb.style.display = 'none';
+};
 function renderBioCard(p){
   const avatarContent = p.photo_url
-    ? '<img src="'+esc(p.photo_url)+'" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">'
+    ? '<img src="'+esc(p.photo_url)+'" onclick="event.stopPropagation();openPhotoLightbox(this.src)" style="width:100%;height:100%;object-fit:cover;border-radius:50%;cursor:pointer;">'
     : esc(p.initials||initials(p.name));
   return '<div class="bio-card"><div class="bio-avatar" style="overflow:hidden;">'+avatarContent+'</div>'
     + '<div><div class="bio-name">'+esc(p.name)+'</div><div class="bio-role">'+esc(p.role||'')+'</div><div class="bio-text">'+esc(p.bio||'')+'</div>'
@@ -952,16 +964,16 @@ function renderBioCard(p){
 }
 function renderPersonRow(p, withContact, allowSelfUpload){
   const avatarContent = p.photo_url
-    ? '<img src="'+esc(p.photo_url)+'" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">'
+    ? '<img src="'+esc(p.photo_url)+'" onclick="event.stopPropagation();openPhotoLightbox(this.src)" style="width:100%;height:100%;object-fit:cover;border-radius:50%;cursor:pointer;">'
     : esc(p.initials||initials(p.name));
   let familyHtml = '';
   if(p.spouse_name || p.children){
     familyHtml += '<div style="margin-top:8px; padding-top:8px; border-top:1px solid #F3E4CE; width:100%;">';
     if(p.spouse_name){
       const spouseAvatar = p.spouse_photo_url
-        ? '<img src="'+esc(p.spouse_photo_url)+'" style="width:20px;height:20px;object-fit:cover;border-radius:50%;">'
-        : '';
-      familyHtml += '<div style="display:flex; align-items:center; gap:6px; font-size:12px; color:var(--ink-soft); margin-bottom:3px;">'+spouseAvatar+'<span>Spouse: '+esc(p.spouse_name)+'</span></div>';
+        ? '<img src="'+esc(p.spouse_photo_url)+'" onclick="event.stopPropagation();openPhotoLightbox(this.src)" style="width:38px;height:38px;object-fit:cover;border-radius:50%;flex-shrink:0;cursor:pointer;">'
+        : '<span style="width:38px;height:38px;border-radius:50%;background:var(--paper-dim);display:inline-flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:var(--ink-soft);flex-shrink:0;">'+esc(initials(p.spouse_name))+'</span>';
+      familyHtml += '<div style="display:flex; align-items:center; gap:8px; font-size:12.5px; color:var(--ink-soft); margin-bottom:3px;">'+spouseAvatar+'<span>Spouse: <b style="color:var(--ink);">'+esc(p.spouse_name)+'</b></span></div>';
     }
     if(p.children){
       familyHtml += '<div style="font-size:12px; color:var(--ink-soft);">Children: '+esc(p.children)+'</div>';
@@ -2062,5 +2074,9 @@ if('serviceWorker' in navigator){
 }
 </script>
 
+<!-- Photo lightbox: tap any profile photo to enlarge, tap anywhere to close -->
+<div id="photoLightbox" onclick="closePhotoLightbox()" style="display:none; position:fixed; inset:0; background:rgba(12,10,24,.93); z-index:9999; align-items:center; justify-content:center; padding:28px;">
+  <img id="photoLightboxImg" src="" alt="" style="max-width:100%; max-height:100%; border-radius:14px; object-fit:contain; box-shadow:0 12px 48px rgba(0,0,0,.5);">
+</div>
 </body>
 </html>
