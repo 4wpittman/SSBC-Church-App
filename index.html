@@ -1227,6 +1227,9 @@ window.filterDirectory = function(){
 };
 
 window.promptSelfPhoto = function(directoryId){
+  const person = (typeof allDirectoryItems !== 'undefined' ? allDirectoryItems : []).find(p => String(p.id) === String(directoryId));
+  const who = person ? person.name : 'this profile';
+  if(!confirm('Submit a photo for ' + who + '?\nIt will go to staff for approval before it appears.')) return;
   const input = document.createElement('input');
   input.type = 'file';
   input.accept = 'image/*';
