@@ -970,7 +970,9 @@ function renderPersonRow(p, withContact, allowSelfUpload){
   }
   if(allowSelfUpload){
     familyHtml += '<div style="margin-top:8px; width:100%;">'
-      + '<button onclick="event.stopPropagation(); promptSelfPhoto(\''+p.id+'\')" style="background:none; border:none; color:var(--brick); font-size:11.5px; font-weight:600; cursor:pointer; padding:0; font-family:inherit;">Is this you? Upload your photo</button>'
+      + (p.pending_photo_url
+          ? '<span style="font-size:11px; color:var(--ink-soft);">Photo submitted — pending staff review</span>'
+          : '<button id="selfPhotoBtn-'+p.id+'" onclick="event.stopPropagation(); promptSelfPhoto(\''+p.id+'\')" style="background:none; border:none; color:var(--brick); font-size:11.5px; font-weight:600; cursor:pointer; padding:0; font-family:inherit;">Is this you? Upload your photo</button>')
       + '<span id="selfPhotoStatus-'+p.id+'" style="font-size:11px; color:var(--ink-soft); margin-left:6px;"></span>'
       + '</div>';
   }
@@ -1221,7 +1223,9 @@ window.promptSelfPhoto = function(directoryId){
       const { data: pub } = supabase.storage.from('profile-photos').getPublicUrl(path);
       const { error: dbErr } = await supabase.from('directory').update({ pending_photo_url: pub.publicUrl }).eq('id', directoryId);
       if(dbErr) throw dbErr;
-      if(statusEl){ statusEl.textContent = 'Sent! A staff member will review it before it shows up.'; }
+      const btn = document.getElementById('selfPhotoBtn-'+directoryId);
+      if(btn) btn.style.display = 'none';
+      if(statusEl){ statusEl.textContent = 'Photo submitted — pending staff review.'; }
     }catch(e){
       if(statusEl){ statusEl.textContent = 'Something went wrong — please try again.'; }
     }
