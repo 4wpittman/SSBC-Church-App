@@ -213,6 +213,14 @@
   .chat-bubble .cb-name{font-size:11px; font-weight:700; color:var(--brick); margin-bottom:2px;}
   .chat-bubble .cb-text{color:var(--ink); word-wrap:break-word;}
   .chat-bubble .cb-time{font-size:10px; color:var(--ink-soft); margin-top:3px;}
+  .chat-room-dot{width:9px; height:9px; border-radius:50%; background:#D33; flex:none; margin-right:10px;}
+  .chat-bell{background:none; border:none; padding:6px; margin:-6px 2px -6px 0; cursor:pointer; line-height:0;}
+  .chat-bell svg{width:17px; height:17px;}
+  .tab{position:relative;}
+  .tab-dot{position:absolute; top:7px; right:calc(50% - 16px); width:8px; height:8px; border-radius:50%; background:#D33;}
+  .cb-del{background:none; border:none; padding:0; font-size:10px; color:#B33; cursor:pointer; font-family:inherit;}
+  .staff-toggle{background:none; border:1px solid rgba(27,22,64,.15); border-radius:999px; font-size:11px; padding:4px 10px; color:var(--ink-soft); cursor:pointer; font-family:inherit;}
+  .staff-toggle.on{background:var(--navy); color:#fff; border-color:var(--navy);}
   .chat-bubble-wrap{background:#fff; border:1px solid rgba(27,22,64,.07); align-self:flex-start;}
   .lightbox.show{display:flex;}
   .lightbox img{max-width:100%; max-height:75vh; border-radius:10px;}
@@ -496,7 +504,7 @@
     <div class="screen" id="screen-chat">
       <div class="mini-header" style="justify-content:flex-end;"><button class="back-btn" onclick="showTab('home')" title="Home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg></button></div>
       <div class="section" style="padding-top:4px;">
-        <div class="section-head"><h2>Chat</h2></div>
+        <div class="section-head"><h2>Chat</h2><button class="staff-toggle" id="staffModeBtn" onclick="toggleStaffMode()">Staff</button></div>
         <div class="card-desc" style="margin-top:-8px; margin-bottom:14px;">Everything here is visible to everyone, including staff. Be kind!</div>
         <div id="chatRoomsList"><div class="card-desc">Loading...</div></div>
       </div>
@@ -740,6 +748,7 @@ function showTab(name){
   var tabEl = document.querySelector('.tab[data-tab="'+name+'"]');
   if(tabEl) tabEl.classList.add('active');
   document.querySelector('.screens').scrollTop = 0;
+  if(name === 'chat') loadChatRooms(); // refresh follow dots on return
 }
 function openScreen(name){
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
@@ -759,6 +768,21 @@ function prayerCooldownRemaining(){
     const wait = 60000 - (Date.now() - last);
     return wait > 0 ? Math.ceil(wait / 1000) : 0;
   }catch(e){ return 0; }
+}
+// Chat: one message per 15 seconds per device — stops spam floods.
+function chatCooldownRemaining(){
+  try{
+    const last = parseInt(localStorage.getItem('ssbc_chat_last') || '0', 10);
+    const wait = 15000 - (Date.now() - last);
+    return wait > 0 ? Math.ceil(wait / 1000) : 0;
+  }catch(e){ return 0; }
+}
+// Basic courtesy filter for chat — stops casual profanity before it posts.
+// Determined abusers can bypass anything client-side; staff moderation
+// via the dashboard is the real backstop.
+const CHAT_BLOCKED_WORDS = ['fuck','shit','bitch','bastard','asshole','dick','pussy','cunt','slut','whore','nigger','nigga','faggot'];
+function chatMessageClean(text){
+  return !CHAT_BLOCKED_WORDS.some(w => new RegExp('\\b' + w + '\\b', 'i').test(text));
 }
 async function submitPrayer(){
   const name = document.getElementById('prayerName').value.trim();
@@ -1723,24 +1747,127 @@ window.addEventListener('pagehide', suspendMediaIframes);
 let currentChatRoomId = null;
 let currentChatChannel = null;
 
+/* Chat: per-device id, so "delete" only appears on messages this device sent. */
+function chatDeviceId(){
+  try{
+    let id = localStorage.getItem('ssbc_device_id');
+    if(!id){
+      id = 'd-' + Math.random().toString(36).slice(2) + Date.now().toString(36);
+      localStorage.setItem('ssbc_device_id', id);
+    }
+    return id;
+  }catch(e){ return 'd-anon'; }
+}
+
+/* Staff mode: a UI gate only (PIN keeps the buttons away from regular members).
+   The real protection is the database rule: anyone may delete only messages
+   less than 15 minutes old. Older messages are removed via the staff dashboard.
+   Either PIN unlocks staff mode — change these to your own. */
+const STAFF_DELETE_PINS = ['0204', '1234'];
+function chatStaffMode(){
+  try{ return localStorage.getItem('ssbc_staff_mode') === '1'; }catch(e){ return false; }
+}
+window.toggleStaffMode = function(){
+  if(chatStaffMode()){
+    try{ localStorage.removeItem('ssbc_staff_mode'); }catch(e){}
+  }else{
+    const pin = prompt('Staff PIN:');
+    if(!STAFF_DELETE_PINS.includes(pin)){ if(pin !== null) alert('Wrong PIN.'); return; }
+    try{ localStorage.setItem('ssbc_staff_mode', '1'); }catch(e){}
+  }
+  const btn = document.getElementById('staffModeBtn');
+  if(btn) btn.classList.toggle('on', chatStaffMode());
+  loadChatRooms();
+  if(currentChatRoomId) loadChatMessages(currentChatRoomId);
+};
+
+/* Chat follows: red dots appear only for rooms you follow.
+   Opening a room auto-follows it. */
+function getChatFollows(){
+  try{ return JSON.parse(localStorage.getItem('ssbc_chat_follows') || '[]'); }catch(e){ return []; }
+}
+function isChatFollowed(roomId){ return getChatFollows().includes(roomId); }
+function setChatFollow(roomId, on){
+  try{
+    let f = getChatFollows();
+    if(on && !f.includes(roomId)) f.push(roomId);
+    if(!on) f = f.filter(x => x !== roomId);
+    localStorage.setItem('ssbc_chat_follows', JSON.stringify(f));
+  }catch(e){}
+}
+window.toggleChatFollow = function(roomId){
+  setChatFollow(roomId, !isChatFollowed(roomId));
+  loadChatRooms();
+};
+function getChatLastRead(roomId){
+  try{ return parseInt(localStorage.getItem('ssbc_chat_lastread_' + roomId) || '0', 10); }catch(e){ return 0; }
+}
+function setChatLastRead(roomId){
+  try{ localStorage.setItem('ssbc_chat_lastread_' + roomId, String(Date.now())); }catch(e){}
+}
+async function chatRoomHasUnread(roomId){
+  try{
+    const lastRead = getChatLastRead(roomId);
+    const { data } = await supabase.from('chat_messages').select('created_at').eq('room_id', roomId).order('created_at', { ascending:false }).limit(1);
+    if(!data || !data.length) return false;
+    return new Date(data[0].created_at).getTime() > lastRead;
+  }catch(e){ return false; }
+}
+function bellSvg(on){
+  const fill = on ? '#D9A441' : 'none';
+  const stroke = on ? '#D9A441' : '#A79F8E';
+  return '<svg viewBox="0 0 24 24" fill="'+fill+'" stroke="'+stroke+'" stroke-width="1.8"><path d="M18 8a6 6 0 00-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 01-3.4 0"/></svg>';
+}
+async function refreshChatDots(rooms){
+  const follows = getChatFollows();
+  let anyUnread = false;
+  await Promise.all(rooms.map(async r => {
+    const dot = document.getElementById('chatdot-' + r.id);
+    if(!dot) return;
+    const unread = follows.includes(r.id) ? await chatRoomHasUnread(r.id) : false;
+    dot.style.display = unread ? 'inline-block' : 'none';
+    if(unread) anyUnread = true;
+  }));
+  const tab = document.querySelector('.tab[data-tab="chat"]');
+  if(tab){
+    let badge = tab.querySelector('.tab-dot');
+    if(anyUnread && !badge){
+      badge = document.createElement('span');
+      badge.className = 'tab-dot';
+      tab.appendChild(badge);
+    }else if(!anyUnread && badge){
+      badge.remove();
+    }
+  }
+}
+
 async function loadChatRooms(){
   try{
     const { data: groups } = await supabase.from('groups').select('id,title').order('created_at', { ascending:true });
     const listEl = document.getElementById('chatRoomsList');
     let rooms = [{ id:'general', label:'General' }];
     (groups||[]).forEach(g => rooms.push({ id:g.id, label:g.title }));
-    listEl.innerHTML = rooms.map(r =>
-      '<div class="chat-room-item" onclick="openChatRoom(\''+r.id+'\', '+JSON.stringify(r.label).replace(/&/g,'&amp;').replace(/"/g,'&quot;')+')">'
-      + '<div style="font-weight:600; font-size:14px;">'+esc(r.label)+'</div>'
+    const follows = getChatFollows();
+    listEl.innerHTML = rooms.map(r => {
+      const followed = follows.includes(r.id);
+      return '<div class="chat-room-item" onclick="openChatRoom(\''+r.id+'\', '+JSON.stringify(r.label).replace(/&/g,'&amp;').replace(/"/g,'&quot;')+')">'
+      + '<span class="chat-room-dot" id="chatdot-'+r.id+'" style="display:none;"></span>'
+      + '<div style="font-weight:600; font-size:14px; flex:1;">'+esc(r.label)+'</div>'
+      + '<button class="chat-bell" title="'+(followed?'Unfollow':'Follow')+' room" onclick="event.stopPropagation(); toggleChatFollow(\''+r.id+'\')">'+bellSvg(followed)+'</button>'
       + '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#A79F8E" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>'
-      + '</div>'
-    ).join('');
+      + '</div>';
+    }).join('');
+    const staffBtn = document.getElementById('staffModeBtn');
+    if(staffBtn) staffBtn.classList.toggle('on', chatStaffMode());
+    refreshChatDots(rooms);
   }catch(e){ console.error('chat rooms load failed', e); }
 }
 
 window.openChatRoom = async function(roomId, roomLabel){
   currentChatRoomId = roomId;
   document.getElementById('chatRoomTitle').textContent = roomLabel;
+  setChatFollow(roomId, true);   // visiting a room follows it
+  setChatLastRead(roomId);       // mark everything here as read
   openScreen('chat-room');
   renderChatNameState();
 
@@ -1772,12 +1899,29 @@ function appendChatMessage(m){
   const wrap = document.getElementById('chatMessagesWrap');
   if(wrap.querySelector('.card-desc')) wrap.innerHTML = '';
   const when = m.created_at ? new Date(m.created_at).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}) : '';
+  // Delete button: your own messages (this device) or staff mode — and only
+  // within 15 minutes of posting (enforced by the database too).
+  const recent = m.created_at && (Date.now() - new Date(m.created_at).getTime()) < 15*60*1000;
+  const mine = m.device_id && m.device_id === chatDeviceId();
+  const canDelete = recent && (mine || chatStaffMode());
+  const delBtn = canDelete ? ' · <button class="cb-del" onclick="deleteChatMessageById('+JSON.stringify(m.id)+', this)">Delete</button>' : '';
   const bubble = document.createElement('div');
   bubble.className = 'chat-bubble chat-bubble-wrap';
-  bubble.innerHTML = '<div class="cb-name">'+esc(m.display_name)+'</div><div class="cb-text">'+esc(m.message)+'</div><div class="cb-time">'+when+'</div>';
+  bubble.innerHTML = '<div class="cb-name">'+esc(m.display_name)+'</div><div class="cb-text">'+esc(m.message)+'</div><div class="cb-time">'+when+delBtn+'</div>';
   wrap.appendChild(bubble);
   wrap.scrollTop = wrap.scrollHeight;
 }
+
+window.deleteChatMessageById = async function(msgId, btn){
+  if(!confirm('Delete this message?')) return;
+  const { error } = await supabase.from('chat_messages').delete().eq('id', msgId);
+  if(error){
+    alert("Couldn't delete it — messages can only be deleted within 15 minutes of posting.");
+    return;
+  }
+  const bubble = btn.closest('.chat-bubble-wrap');
+  if(bubble) bubble.remove();
+};
 
 /* Chat display name: chosen once, then locked — stops anyone from sending
    as one name and later switching to someone else's. */
@@ -1802,6 +1946,17 @@ window.sendChatMessage = async function(){
   const message = msgEl.value.trim();
   if(!name){ if(nameEl) nameEl.focus(); return; }
   if(!message) return;
+  // Courtesy filter — keep the chat encouraging.
+  if(!chatMessageClean(message)){
+    alert("Let's keep the chat encouraging — please reword your message.");
+    return;
+  }
+  // Throttle — one message per 15 seconds per device.
+  const chatWait = chatCooldownRemaining();
+  if(chatWait > 0){
+    alert('Please wait ' + chatWait + ' seconds before sending another message.');
+    return;
+  }
   try{ localStorage.setItem('ssbc_chat_name', name); }catch(e){}
   const roomLabel = document.getElementById('chatRoomTitle').textContent;
   msgEl.value = '';
@@ -1810,9 +1965,11 @@ window.sendChatMessage = async function(){
       room_id: currentChatRoomId,
       room_label: roomLabel,
       display_name: name,
-      message: message
+      message: message,
+      device_id: chatDeviceId()
     });
     if(error) throw error;
+    try{ localStorage.setItem('ssbc_chat_last', String(Date.now())); }catch(e){}
     renderChatNameState();
   }catch(e){
     alert('Message didn\'t send — please try again.');
