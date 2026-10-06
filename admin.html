@@ -1260,6 +1260,18 @@ window.deleteChatMessage = async function(id){
   await supabase.from('chat_messages').delete().eq('id', id);
   renderChatMessages();
 };
+
+/* Directory: live photo sync — member uploads and approvals appear in the
+   dashboard without a refresh (and staff edits appear in the app). */
+(function subscribeDirectoryLive(){
+  supabase.channel('directory-live-admin')
+    .on('postgres_changes', { event:'*', schema:'public', table:'directory' }, () => {
+      renderPendingPhotos();
+      const formEl = document.getElementById('form-directory');
+      if(!(formEl && formEl.innerHTML.trim())) renderTable('directory'); // don't wipe an open edit form
+    })
+    .subscribe();
+})();
 </script>
 </body>
 </html>
