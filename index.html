@@ -514,7 +514,7 @@
     <div class="screen" id="screen-chat-room">
       <div class="mini-header"><button class="back-btn" onclick="showTab('chat')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg></button><h2 id="chatRoomTitle">Chat</h2></div>
       <div id="chatMessagesWrap" style="padding:12px 20px; display:flex; flex-direction:column; gap:8px;"></div>
-      <div style="padding:12px 20px 20px; position:sticky; bottom:0; background:var(--paper);">
+      <div id="chatComposer" style="padding:12px 20px 20px; position:sticky; bottom:0; background:var(--paper);">
         <div id="chatNameFieldWrap" style="margin-bottom:8px;">
           <input type="text" id="chatDisplayName" placeholder="Your name" style="width:100%; border:1px solid rgba(27,22,64,.12); background:#fff; border-radius:8px; padding:9px 12px; font-family:inherit; font-size:13.5px;">
         </div>
@@ -522,6 +522,9 @@
           <input type="text" id="chatMessageInput" placeholder="Type a message..." style="flex:1; border:1px solid rgba(27,22,64,.12); background:#fff; border-radius:8px; padding:10px 12px; font-family:inherit; font-size:13.5px;" onkeydown="if(event.key==='Enter') sendChatMessage()">
           <button class="submit-btn" style="width:auto; padding:10px 16px; margin-top:0;" onclick="sendChatMessage()">Send</button>
         </div>
+      </div>
+      <div id="chatLockedNote" style="display:none; padding:12px 20px 20px; position:sticky; bottom:0; background:var(--paper);">
+        <div style="font-size:13px; color:var(--ink-soft); background:var(--paper-dim); border-radius:8px; padding:12px; text-align:center;">🔒 This room is locked — only staff announcements can be posted right now.</div>
       </div>
     </div>
 
@@ -1789,6 +1792,16 @@ window.addEventListener('pagehide', suspendMediaIframes);
 let currentChatRoomId = null;
 let currentChatChannel = null;
 
+/* Chat room settings: lock + passcode + staff-created custom rooms (e.g. Little Paws).
+   Read from the chat_room_settings table (public read, staff-only write). */
+let chatRoomSettings = [];
+function chatRoomSetting(roomId){
+  return chatRoomSettings.find(s => s.room_id === roomId) || null;
+}
+function chatRoomUnlocked(roomId){
+  try{ return localStorage.getItem('ssbc_room_access_' + roomId) === '1'; }catch(e){ return false; }
+}
+
 /* Chat: per-device id, so "delete" only appears on messages this device sent. */
 function chatDeviceId(){
   try{
@@ -1885,16 +1898,25 @@ async function refreshChatDots(rooms){
 
 async function loadChatRooms(){
   try{
-    const { data: groups } = await supabase.from('groups').select('id,title').order('created_at', { ascending:true });
+    const [groupsRes, settingsRes] = await Promise.all([
+      supabase.from('groups').select('id,title').order('created_at', { ascending:true }),
+      supabase.from('chat_room_settings').select('*').order('label', { ascending:true })
+    ]);
+    const groups = groupsRes.data;
+    chatRoomSettings = (settingsRes && settingsRes.data) || [];
     const listEl = document.getElementById('chatRoomsList');
     let rooms = [{ id:'general', label:'General' }];
     (groups||[]).forEach(g => rooms.push({ id:g.id, label:g.title }));
+    chatRoomSettings.forEach(s => { if(s.is_custom && !rooms.some(r => r.id === s.room_id)) rooms.push({ id:s.room_id, label:s.label }); });
     const follows = getChatFollows();
     listEl.innerHTML = rooms.map(r => {
       const followed = follows.includes(r.id);
+      const st = chatRoomSetting(r.id);
+      const badges = (st && st.locked ? '<span title="Locked" style="margin-right:6px;">🔒</span>' : '')
+                   + (st && st.passcode ? '<span title="Passcode required" style="margin-right:6px;">🔑</span>' : '');
       return '<div class="chat-room-item" onclick="openChatRoom(\''+r.id+'\', '+JSON.stringify(r.label).replace(/&/g,'&amp;').replace(/"/g,'&quot;')+')">'
       + '<span class="chat-room-dot" id="chatdot-'+r.id+'" style="display:none;"></span>'
-      + '<div style="font-weight:600; font-size:14px; flex:1;">'+esc(r.label)+'</div>'
+      + '<div style="font-weight:600; font-size:14px; flex:1;">'+badges+esc(r.label)+'</div>'
       + '<button class="chat-bell" title="'+(followed?'Unfollow':'Follow')+' room" onclick="event.stopPropagation(); toggleChatFollow(\''+r.id+'\')">'+bellSvg(followed)+'</button>'
       + '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#A79F8E" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>'
       + '</div>';
@@ -1906,12 +1928,20 @@ async function loadChatRooms(){
 }
 
 window.openChatRoom = async function(roomId, roomLabel){
+  const st = chatRoomSetting(roomId);
+  if(st && st.passcode && !chatRoomUnlocked(roomId)){
+    const code = prompt('This room needs a passcode:');
+    if(code === null) return;
+    if(code.trim() !== st.passcode){ alert('Wrong passcode.'); return; }
+    try{ localStorage.setItem('ssbc_room_access_' + roomId, '1'); }catch(e){}
+  }
   currentChatRoomId = roomId;
   document.getElementById('chatRoomTitle').textContent = roomLabel;
   setChatFollow(roomId, true);   // visiting a room follows it
   setChatLastRead(roomId);       // mark everything here as read
   openScreen('chat-room');
   renderChatNameState();
+  renderChatLockState();
 
   await loadChatMessages(roomId);
 
@@ -1979,7 +2009,19 @@ function renderChatNameState(){
   }
 }
 
+/* Locked rooms: members can't post (staff reach them via broadcast). */
+function renderChatLockState(){
+  const st = currentChatRoomId ? chatRoomSetting(currentChatRoomId) : null;
+  const locked = !!(st && st.locked);
+  const composer = document.getElementById('chatComposer');
+  const note = document.getElementById('chatLockedNote');
+  if(composer) composer.style.display = locked ? 'none' : '';
+  if(note) note.style.display = locked ? '' : 'none';
+}
+
 window.sendChatMessage = async function(){
+  const st = currentChatRoomId ? chatRoomSetting(currentChatRoomId) : null;
+  if(st && st.locked){ alert('This room is locked right now.'); return; }
   const nameEl = document.getElementById('chatDisplayName');
   const msgEl = document.getElementById('chatMessageInput');
   let name = '';
