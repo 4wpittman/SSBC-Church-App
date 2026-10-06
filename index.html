@@ -1225,6 +1225,25 @@ async function loadDirectory(){
     listEl.innerHTML = allDirectoryItems.length ? allDirectoryItems.map(p=>renderPersonRow(p,true,true)).join('') : '<div class="card-desc">No directory entries yet.</div>';
   }catch(e){ console.error('directory load failed', e); }
 }
+/* Directory: live photo sync — when anyone (member upload, staff approval,
+   dashboard edit) changes the directory, the app updates without a refresh. */
+let directoryChannel = null;
+function subscribeDirectoryLive(){
+  if(directoryChannel) return;
+  directoryChannel = supabase.channel('directory-live')
+    .on('postgres_changes', { event:'*', schema:'public', table:'directory' }, () => {
+      const screen = document.getElementById('screen-directory');
+      if(screen && screen.classList.contains('active')){
+        const input = document.getElementById('directorySearchInput');
+        const q = input ? input.value : '';
+        loadDirectory().then(() => {
+          if(q.trim() && input){ input.value = q; filterDirectory(); }
+        });
+      }
+    })
+    .subscribe();
+}
+
 window.filterDirectory = function(){
   const q = document.getElementById('directorySearchInput').value.trim().toLowerCase();
   const listEl = document.getElementById('directoryList');
@@ -1753,6 +1772,7 @@ loadSignupsList();
 loadMinistries();
 loadBeliefs();
 loadChatRooms();
+subscribeDirectoryLive();
 
 /* Refresh content when the app comes back from the background after a while,
    so it doesn't sit on stale data all day. */
