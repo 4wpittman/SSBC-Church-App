@@ -299,10 +299,16 @@
         <div class="panel-head"><h2>Photos</h2></div>
         <div class="form-card">
           <h3>Upload a photo</h3>
+          <div class="card-desc" style="color:var(--ink-soft); margin-bottom:12px;">Staff uploads go live in the app immediately — no approval needed.</div>
           <div class="field"><label>Image file</label><input type="file" id="photoFileInput" accept="image/*"></div>
           <div class="field"><label>Caption (optional)</label><input id="photoCaptionInput" placeholder="Youth group bonfire, Sept 2026"></div>
           <button class="btn gold" onclick="uploadPhoto()">Upload</button>
           <div class="status-msg" id="photoUploadStatus"></div>
+        </div>
+        <div class="form-card" id="photoSubmissionsCard" style="display:none; margin-top:16px;">
+          <h3>Member photos waiting for approval</h3>
+          <div class="card-desc" style="color:var(--ink-soft); margin-bottom:12px;">Submitted from the app's Photos tab. Nothing goes public until you approve it here.</div>
+          <div id="photoSubmissionsGrid"></div>
         </div>
         <div class="photo-admin-grid" id="photosAdminGrid" style="margin-top:16px;"></div>
       </div>
@@ -443,6 +449,7 @@ async function loadAllTables(){
   await loadSettingsForm();
   await renderPrayerRequests();
   await renderPhotosAdmin();
+  await renderPhotoSubmissions();
   await renderSlidesAdmin();
   await loadSignupsEventOptions();
   await renderPendingPhotos();
@@ -769,6 +776,50 @@ window.deletePhoto = async function(id){
   await supabase.from('photos').delete().eq('id', id);
   renderPhotosAdmin();
 };
+
+/* --- Member photo submissions: approve → goes live in the app;
+   reject → discarded. Staff uploads skip this queue entirely. --- */
+async function renderPhotoSubmissions(){
+  const { data: items, error } = await supabase.from('photo_submissions').select('*').order('created_at', { ascending:true });
+  const card = document.getElementById('photoSubmissionsCard');
+  const grid = document.getElementById('photoSubmissionsGrid');
+  if(error || !items || items.length === 0){
+    card.style.display = 'none';
+    return;
+  }
+  card.style.display = 'block';
+  grid.innerHTML = items.map(p =>
+    '<div class="pending-photo-row"><img src="'+esc(p.url)+'">'
+    + '<div class="ppr-name">'+esc(p.submitted_by || 'Anonymous')
+    + (p.caption ? '<div style="font-weight:400; font-size:12px; color:var(--ink-soft);">'+esc(p.caption)+'</div>' : '')
+    + '</div>'
+    + '<button class="btn small gold" onclick="approvePhotoSubmission(\''+p.id+'\')">Approve</button>'
+    + '<button class="btn small danger" onclick="rejectPhotoSubmission(\''+p.id+'\')">Reject</button>'
+    + '</div>'
+  ).join('');
+}
+window.approvePhotoSubmission = async function(id){
+  const { data: sub, error } = await supabase.from('photo_submissions').select('*').eq('id', id).single();
+  if(error || !sub) return;
+  const { error: insErr } = await supabase.from('photos').insert({ url: sub.url, caption: sub.caption });
+  if(insErr) return;
+  await supabase.from('photo_submissions').delete().eq('id', id);
+  renderPhotoSubmissions();
+  renderPhotosAdmin();
+};
+window.rejectPhotoSubmission = async function(id){
+  if(!confirm('Reject this photo? It will be discarded.')) return;
+  await supabase.from('photo_submissions').delete().eq('id', id);
+  renderPhotoSubmissions();
+};
+/* New member submissions appear in the queue live, no refresh needed. */
+(function subscribePhotoSubmissionsLive(){
+  supabase.channel('photo-submissions-admin')
+    .on('postgres_changes', { event:'*', schema:'public', table:'photo_submissions' }, () => {
+      renderPhotoSubmissions();
+    })
+    .subscribe();
+})();
 
 /* --- Announcement slides: a gallery of slides that rotate in the app.
    Each slide can optionally link to an event. --- */
