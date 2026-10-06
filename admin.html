@@ -317,8 +317,21 @@
       <div class="panel" id="panel-chat">
         <div class="panel-head"><h2>Chat moderation</h2></div>
         <div class="card-desc" style="color:var(--ink-soft); margin-bottom:14px;">Everyone posts under a self-typed name, no login required — so this is the place to review and remove anything inappropriate. Deleting here removes it from the app immediately for everyone.</div>
-        <div class="field" style="max-width:320px;"><input id="chatSearchInput" placeholder="Search by name or message..." oninput="filterChatMessages()"></div>
-        <table><thead><tr><th>Room</th><th>Name</th><th>Message</th><th>Sent</th><th></th></tr></thead><tbody id="tbl-chat"></tbody></table>
+        <div class="field" style="max-width:520px;"><label>Broadcast to all rooms</label>
+          <div style="display:flex; gap:8px;">
+            <input id="chatBroadcastInput" placeholder="Announcement for every chat room..." style="flex:1;">
+            <button class="btn small gold" onclick="broadcastChatMessage()">Send to all</button>
+          </div>
+        </div>
+        <div class="field"><button class="btn small" onclick="addChatRoom()">+ Add chat room</button></div>
+        <div id="chatRoomList"></div>
+        <div id="chatRoomDetail" style="display:none;">
+          <div class="field"><button class="btn small" onclick="closeChatRoomDetail()">← All rooms</button></div>
+          <div class="panel-head" style="margin-bottom:8px;"><h3 id="chatRoomDetailTitle" style="margin:0;"></h3></div>
+          <div id="chatRoomSettingsBar" style="display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:12px;"></div>
+          <div class="field" style="max-width:320px;"><input id="chatSearchInput" placeholder="Search by name or message..." oninput="filterChatMessages()"></div>
+          <table><thead><tr><th>Name</th><th>Message</th><th>Sent</th><th></th></tr></thead><tbody id="tbl-chat"></tbody></table>
+        </div>
       </div>
 
     </div>
@@ -433,7 +446,7 @@ async function loadAllTables(){
   await renderSlidesAdmin();
   await loadSignupsEventOptions();
   await renderPendingPhotos();
-  await renderChatMessages();
+  await chatModLoadRooms();
 }
 
 const FILE_BUCKETS = { leadership: 'profile-photos', deacons: 'profile-photos', directory: 'profile-photos', events: 'event-images' };
@@ -1107,28 +1120,139 @@ window.createEventFromAnnouncement = async function(announcementId){
   }
 };
 
-/* --- Chat moderation --- */
+/* --- Chat moderation: rooms first, then messages per room --- */
+let chatModRooms = [];   // [{id, label, custom}]
+let chatModRoomId = null;
+let chatModRoomLabel = '';
 let allChatMessages = [];
+
+async function chatModLoadRooms(){
+  try{
+    const [groupsRes, settingsRes, msgsRes] = await Promise.all([
+      supabase.from('groups').select('id,title').order('created_at', { ascending:true }),
+      supabase.from('chat_room_settings').select('*').order('label', { ascending:true }),
+      supabase.from('chat_messages').select('room_id').limit(5000)
+    ]);
+    const counts = {};
+    ((msgsRes && msgsRes.data) || []).forEach(m => { counts[m.room_id] = (counts[m.room_id] || 0) + 1; });
+    const settingsById = {};
+    ((settingsRes && settingsRes.data) || []).forEach(s => { settingsById[s.room_id] = s; });
+    chatModRooms = [{ id:'general', label:'General', custom:false }];
+    ((groupsRes && groupsRes.data) || []).forEach(g => chatModRooms.push({ id:g.id, label:g.title, custom:false }));
+    Object.values(settingsById).forEach(s => {
+      if(s.is_custom && !chatModRooms.some(r => r.id === s.room_id)) chatModRooms.push({ id:s.room_id, label:s.label, custom:true });
+    });
+    const el = document.getElementById('chatRoomList');
+    el.innerHTML = chatModRooms.map(r => {
+      const st = settingsById[r.id];
+      const badges = (st && st.locked ? ' 🔒' : '') + (st && st.passcode ? ' 🔑' : '');
+      const n = counts[r.id] || 0;
+      return '<div onclick="openChatRoomDetail(\''+r.id+'\', '+JSON.stringify(r.label).replace(/&/g,'&amp;').replace(/"/g,'&quot;')+')" style="display:flex; align-items:center; background:#fff; border:1px solid rgba(27,22,64,.07); border-radius:14px; padding:14px 16px; margin-bottom:10px; cursor:pointer;">'
+        + '<div style="font-weight:600; font-size:14px; flex:1;">'+esc(r.label)+badges+'</div>'
+        + '<div style="font-size:12px; color:var(--ink-soft); margin-right:10px;">'+n+' message'+(n===1?'':'s')+'</div>'
+        + '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#A79F8E" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>'
+        + '</div>';
+    }).join('');
+  }catch(e){ console.error('chat rooms load failed', e); }
+}
+
+window.openChatRoomDetail = async function(roomId, roomLabel){
+  chatModRoomId = roomId; chatModRoomLabel = roomLabel;
+  document.getElementById('chatRoomList').style.display = 'none';
+  document.getElementById('chatRoomDetail').style.display = '';
+  document.getElementById('chatRoomDetailTitle').textContent = roomLabel;
+  document.getElementById('chatSearchInput').value = '';
+  await chatModRenderSettingsBar();
+  await renderChatMessages();
+};
+window.closeChatRoomDetail = function(){
+  chatModRoomId = null;
+  document.getElementById('chatRoomDetail').style.display = 'none';
+  document.getElementById('chatRoomList').style.display = '';
+  chatModLoadRooms();
+};
+
+async function chatModRenderSettingsBar(){
+  const bar = document.getElementById('chatRoomSettingsBar');
+  const { data: st } = await supabase.from('chat_room_settings').select('*').eq('room_id', chatModRoomId).maybeSingle();
+  const room = chatModRooms.find(r => r.id === chatModRoomId) || {};
+  const isCustom = !!(st && st.is_custom) || !!room.custom;
+  let html = '<button class="btn small" onclick="toggleRoomLock()">'+(st && st.locked ? '🔓 Unlock room' : '🔒 Lock room')+'</button>';
+  html += '<button class="btn small" onclick="setRoomPasscode()">'+(st && st.passcode ? 'Change passcode' : 'Set passcode')+'</button>';
+  if(st && st.passcode) html += '<button class="btn small" onclick="clearRoomPasscode()">Clear passcode</button>';
+  if(isCustom) html += '<button class="btn small danger" onclick="deleteChatRoom()">Delete room</button>';
+  bar.innerHTML = html;
+}
+window.toggleRoomLock = async function(){
+  const { data } = await supabase.from('chat_room_settings').select('locked').eq('room_id', chatModRoomId).maybeSingle();
+  const next = !(data && data.locked);
+  const { error } = await supabase.from('chat_room_settings').upsert({ room_id: chatModRoomId, label: chatModRoomLabel, locked: next }, { onConflict: 'room_id' });
+  if(error){ alert("Couldn't update the lock."); return; }
+  chatModRenderSettingsBar(); chatModLoadRooms();
+};
+window.setRoomPasscode = async function(){
+  const code = prompt('Set a passcode for "'+chatModRoomLabel+'" (members type it once to enter):');
+  if(code === null) return;
+  const { error } = await supabase.from('chat_room_settings').upsert({ room_id: chatModRoomId, label: chatModRoomLabel, passcode: code.trim() || null }, { onConflict: 'room_id' });
+  if(error){ alert("Couldn't set the passcode."); return; }
+  chatModRenderSettingsBar(); chatModLoadRooms();
+};
+window.clearRoomPasscode = async function(){
+  if(!confirm('Remove the passcode from "'+chatModRoomLabel+'"? Anyone will be able to enter.')) return;
+  const { error } = await supabase.from('chat_room_settings').update({ passcode: null }).eq('room_id', chatModRoomId);
+  if(error){ alert("Couldn't clear the passcode."); return; }
+  chatModRenderSettingsBar(); chatModLoadRooms();
+};
+window.deleteChatRoom = async function(){
+  if(!confirm('Delete the "'+chatModRoomLabel+'" room? This removes the room and ALL its messages. This cannot be undone.')) return;
+  if(!confirm('Really delete it?')) return;
+  const { error: e1 } = await supabase.from('chat_messages').delete().eq('room_id', chatModRoomId);
+  if(e1){ alert("Couldn't delete the messages."); return; }
+  const { error: e2 } = await supabase.from('chat_room_settings').delete().eq('room_id', chatModRoomId);
+  if(e2){ alert("Couldn't delete the room."); return; }
+  closeChatRoomDetail();
+};
+window.addChatRoom = async function(){
+  const name = prompt('Name for the new chat room:');
+  if(!name || !name.trim()) return;
+  const slug = name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || ('room-' + Date.now());
+  const { error } = await supabase.from('chat_room_settings').insert({ room_id: slug, label: name.trim(), is_custom: true });
+  if(error){ alert("Couldn't add the room (that name may already exist)."); return; }
+  chatModLoadRooms();
+};
+window.broadcastChatMessage = async function(){
+  const input = document.getElementById('chatBroadcastInput');
+  const message = input.value.trim();
+  if(!message) return;
+  if(!confirm('Send this to ALL '+chatModRooms.length+' chat rooms?')) return;
+  const rows = chatModRooms.map(r => ({ room_id: r.id, room_label: r.label, display_name: 'Staff', message: message, device_id: 'staff-dashboard' }));
+  const { error } = await supabase.from('chat_messages').insert(rows);
+  if(error){ alert("Couldn't send the broadcast."); return; }
+  input.value = '';
+  alert('Sent to all rooms.');
+  chatModLoadRooms();
+};
+
 function renderChatRows(items){
   const tbody = document.getElementById('tbl-chat');
   if(!items || items.length === 0){
-    tbody.innerHTML = '<tr><td colspan="5" class="empty-note">No messages yet.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="4" class="empty-note">No messages yet.</td></tr>';
     return;
   }
   tbody.innerHTML = items.map(m => {
     const when = m.created_at ? new Date(m.created_at).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}) : '—';
-    return '<tr><td>'+esc(m.room_label)+'</td><td>'+esc(m.display_name)+'</td><td style="max-width:280px;">'+esc(m.message)+'</td><td>'+when+'</td>'
+    return '<tr><td>'+esc(m.display_name)+'</td><td style="max-width:280px;">'+esc(m.message)+'</td><td>'+when+'</td>'
       + '<td class="actions"><button class="btn small danger" onclick="deleteChatMessage(\''+m.id+'\')">Delete</button></td></tr>';
   }).join('');
 }
 async function renderChatMessages(){
-  const { data: items, error } = await supabase.from('chat_messages').select('*').order('created_at', { ascending:false }).limit(300);
+  const { data: items, error } = await supabase.from('chat_messages').select('*').eq('room_id', chatModRoomId).order('created_at', { ascending:false }).limit(300);
   allChatMessages = (error || !items) ? [] : items;
   renderChatRows(allChatMessages);
 }
 window.filterChatMessages = function(){
   const q = document.getElementById('chatSearchInput').value.trim().toLowerCase();
-  const filtered = q ? allChatMessages.filter(m => (m.display_name||'').toLowerCase().includes(q) || (m.message||'').toLowerCase().includes(q)) : allChatMessages;
+  const filtered = q ? allChatMessages.filter(m => (m.display_name||'').toLowerCase().includes(q) || (m.message||'').toLowerCase().includes(q) || (m.room_label||'').toLowerCase().includes(q)) : allChatMessages;
   renderChatRows(filtered);
 };
 window.deleteChatMessage = async function(id){
