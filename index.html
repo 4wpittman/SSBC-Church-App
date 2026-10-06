@@ -1244,6 +1244,19 @@ function subscribeDirectoryLive(){
     .subscribe();
 }
 
+/* Deacons: live photo sync — when a deacon photo changes (e.g. synced over from
+   a directory photo approval), the Deacon list updates without a refresh. */
+let deaconsChannel = null;
+function subscribeDeaconsLive(){
+  if(deaconsChannel) return;
+  deaconsChannel = supabase.channel('deacons-live')
+    .on('postgres_changes', { event:'*', schema:'public', table:'deacons' }, () => {
+      const screen = document.getElementById('screen-deacons');
+      if(screen && screen.classList.contains('active')) loadDeacons();
+    })
+    .subscribe();
+}
+
 window.filterDirectory = function(){
   const q = document.getElementById('directorySearchInput').value.trim().toLowerCase();
   const listEl = document.getElementById('directoryList');
@@ -1773,6 +1786,7 @@ loadMinistries();
 loadBeliefs();
 loadChatRooms();
 subscribeDirectoryLive();
+subscribeDeaconsLive();
 
 /* Refresh content when the app comes back from the background after a while,
    so it doesn't sit on stale data all day. */
