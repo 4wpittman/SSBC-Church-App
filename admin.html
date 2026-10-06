@@ -568,6 +568,13 @@ window.saveItem = async function(key){
     }
     if(error) throw error;
 
+    if(key === 'directory'){
+      const oldPhoto = currentEditData[key] && currentEditData[key].photo_url;
+      if(values.photo_url && values.photo_url !== oldPhoto){
+        await syncDeaconPhoto(values.name, values.photo_url);
+      }
+    }
+
     if(key === 'leadership' || key === 'deacons'){
       const alsoDirectory = document.getElementById('f_'+key+'_alsoDirectory');
       if(alsoDirectory && alsoDirectory.checked){
@@ -1057,6 +1064,21 @@ window.deleteSignup = async function(id, eventId){
 };
 
 /* --- Directory self-submitted photos: nothing goes public until approved --- */
+/* Directory → Deacons photo sync: the directory is the source of truth for photos.
+   When a directory photo is set or approved, push it to any deacon row with the
+   same name so the Deacons tab (and the app's Deacon list) stays current. */
+async function syncDeaconPhoto(dirName, photoUrl){
+  if(!dirName || !photoUrl) return;
+  try{
+    const nm = dirName.trim().toLowerCase();
+    const { data: dcs } = await supabase.from('deacons').select('id,name');
+    const matches = (dcs || []).filter(d => (d.name || '').trim().toLowerCase() === nm);
+    for(const m of matches){
+      await supabase.from('deacons').update({ photo_url: photoUrl }).eq('id', m.id);
+    }
+    if(matches.length) renderTable('deacons');
+  }catch(e){ console.error('deacon photo sync failed', e); }
+}
 function pendingPhotoRow(p, target, url, label){
   return '<div class="pending-photo-row"><img src="'+esc(url)+'">'
     + '<div class="ppr-name">'+esc(label)+'</div>'
@@ -1089,12 +1111,13 @@ window.approvePendingPhoto = async function(id, target){
   target = (target === 'spouse') ? 'spouse' : 'member';
   const pendCol = target === 'spouse' ? 'pending_spouse_photo_url' : 'pending_photo_url';
   const destCol = target === 'spouse' ? 'spouse_photo_url' : 'photo_url';
-  const { data: row } = await supabase.from('directory').select(pendCol).eq('id', id).single();
+  const { data: row } = await supabase.from('directory').select(pendCol + ',name').eq('id', id).single();
   if(!row) return;
   const upd = {};
   upd[destCol] = row[pendCol];
   upd[pendCol] = null;
   await supabase.from('directory').update(upd).eq('id', id);
+  if(target === 'member') await syncDeaconPhoto(row.name, row[pendCol]);
   renderPendingPhotos();
   renderTable('directory');
 };
