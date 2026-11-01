@@ -1209,39 +1209,117 @@ async function loadEvents(){
   }catch(e){ console.error('events load failed', e); }
 }
 
+/* --- Member-only phone numbers -------------------------------------------
+   Leadership, Deacons and the Directory load through database functions
+   that blank out phone/email unless this device passes the member code.
+   The code itself is checked inside the database (check_member_code) —
+   it is never written into this file, and the numbers never reach the
+   app at all until the code unlocks them on this device. --- */
+function memberCode(){ try{ return localStorage.getItem('ssbc_member_code') || ''; }catch(e){ return ''; } }
+function memberVerified(){ try{ return localStorage.getItem('ssbc_member_ok') === '1' && !!memberCode(); }catch(e){ return false; } }
+function memberBannerHtml(ctx){
+  if(memberVerified()){
+    return '<div style="display:flex; align-items:center; justify-content:space-between; gap:10px; background:#fff; border:1px solid rgba(27,22,64,.07); border-radius:14px; padding:10px 14px; margin-bottom:10px;">'
+      + '<span style="font-size:12.5px; color:var(--ink-soft);">Member view is on — phone numbers are visible on this device.</span>'
+      + '<button onclick="lockMemberView()" style="background:none; border:none; color:var(--brick); font-size:12.5px; font-weight:700; cursor:pointer; font-family:inherit; padding:0;">Lock</button></div>';
+  }
+  return '<div style="background:#fff; border:1px solid rgba(27,22,64,.07); border-radius:14px; padding:14px; margin-bottom:10px;">'
+    + '<div style="font-size:13.5px; font-weight:700; margin-bottom:3px;">Phone numbers are members-only</div>'
+    + '<div style="font-size:12.5px; color:var(--ink-soft); margin-bottom:10px;">Enter the member code once on this device to see them. Don\'t have it? Ask at the church office.</div>'
+    + '<div style="display:flex; gap:8px;"><input id="memberCodeInput-'+ctx+'" type="text" placeholder="Member code" autocomplete="off" onkeydown="if(event.key===\'Enter\') submitMemberCode(\''+ctx+'\')" style="flex:1; min-width:0; padding:10px 12px; border:1px solid rgba(27,22,64,.15); border-radius:10px; font-size:14px; font-family:inherit;">'
+    + '<button onclick="submitMemberCode(\''+ctx+'\')" style="background:var(--gold,#D9A441); color:#131E33; border:none; border-radius:10px; padding:10px 16px; font-size:14px; font-weight:700; cursor:pointer; font-family:inherit;">Unlock</button></div>'
+    + '<div id="memberCodeStatus-'+ctx+'" style="font-size:12px; margin-top:8px; display:none;"></div></div>';
+}
+window.submitMemberCode = async function(ctx){
+  const input = document.getElementById('memberCodeInput-'+ctx);
+  const status = document.getElementById('memberCodeStatus-'+ctx);
+  const code = input ? input.value.trim() : '';
+  if(!code || !status) return;
+  status.style.display = 'block';
+  status.style.color = 'var(--ink-soft)';
+  status.textContent = 'Checking...';
+  try{
+    const { data, error } = await supabase.rpc('check_member_code', { p_code: code });
+    if(error) throw error;
+    if(data === true){
+      try{
+        localStorage.setItem('ssbc_member_code', code);
+        localStorage.setItem('ssbc_member_ok', '1');
+      }catch(e){}
+      status.style.color = '#2E7D32';
+      status.textContent = 'You\'re in — loading phone numbers...';
+      loadLeadership(); loadDeacons(); loadDirectory();
+    } else {
+      status.style.color = 'var(--brick)';
+      status.textContent = 'That code didn\'t work — check the spelling, or ask at the church office.';
+    }
+  }catch(e){
+    status.style.color = 'var(--brick)';
+    status.textContent = 'Couldn\'t check the code just now — try again in a moment.';
+  }
+};
+window.lockMemberView = function(){
+  try{
+    localStorage.removeItem('ssbc_member_code');
+    localStorage.removeItem('ssbc_member_ok');
+  }catch(e){}
+  loadLeadership(); loadDeacons(); loadDirectory();
+};
+/* A stored code can go stale (staff changed it): verify quietly on open,
+   and if it no longer matches, drop it so the lists lock again. */
+async function verifyStoredMemberCode(){
+  const code = memberCode();
+  if(!code) return;
+  try{
+    const { data } = await supabase.rpc('check_member_code', { p_code: code });
+    if(data === true){
+      if(!memberVerified()){
+        try{ localStorage.setItem('ssbc_member_ok', '1'); }catch(e){}
+        loadLeadership(); loadDeacons(); loadDirectory();
+      }
+    } else {
+      try{
+        localStorage.removeItem('ssbc_member_code');
+        localStorage.removeItem('ssbc_member_ok');
+      }catch(e){}
+      loadLeadership(); loadDeacons(); loadDirectory();
+    }
+  }catch(e){ /* offline or functions not installed yet — leave state as-is */ }
+}
+
 async function loadLeadership(){
   try{
-    const { data: items, error } = await supabase.from('leadership').select('*').order('created_at', { ascending:true });
+    const { data: items, error } = await supabase.rpc('get_leadership', { p_code: memberCode() });
     if(error) throw error;
     const listEl = document.getElementById('leadershipList');
     const previewEl = document.getElementById('connectLeadershipPreview');
     if(!items || items.length === 0){
-      listEl.innerHTML = '<div class="card-desc">No staff listed yet.</div>';
+      listEl.innerHTML = memberBannerHtml('leadership') + '<div class="card-desc">No staff listed yet.</div>';
       previewEl.innerHTML = '<div class="card-desc">No staff listed yet.</div>';
       return;
     }
-    listEl.innerHTML = items.map(renderBioCard).join('');
+    listEl.innerHTML = memberBannerHtml('leadership') + items.map(renderBioCard).join('');
     previewEl.innerHTML = renderBioCard(items[0]);
   }catch(e){ console.error('leadership load failed', e); }
 }
 
 async function loadDeacons(){
   try{
-    const { data: items, error } = await supabase.from('deacons').select('*').order('created_at', { ascending:true });
+    const { data: items, error } = await supabase.rpc('get_deacons', { p_code: memberCode() });
     if(error) throw error;
     const listEl = document.getElementById('deaconsList');
-    listEl.innerHTML = (items && items.length) ? items.map(p=>renderPersonRow(p,true)).join('') : '<div class="card-desc">No deacons listed yet.</div>';
+    listEl.innerHTML = memberBannerHtml('deacons') + ((items && items.length) ? items.map(p=>renderPersonRow(p,true)).join('') : '<div class="card-desc">No deacons listed yet.</div>');
   }catch(e){ console.error('deacons load failed', e); }
 }
 
 let allDirectoryItems = [];
 async function loadDirectory(){
   try{
-    const { data: items, error } = await supabase.from('directory').select('*').order('name', { ascending:true });
+    const { data: items, error } = await supabase.rpc('get_directory', { p_code: memberCode() });
     if(error) throw error;
     allDirectoryItems = items || [];
     const listEl = document.getElementById('directoryList');
-    listEl.innerHTML = allDirectoryItems.length ? allDirectoryItems.map(p=>renderPersonRow(p,true,true)).join('') : '<div class="card-desc">No directory entries yet.</div>';
+    listEl.innerHTML = memberBannerHtml('directory') + (allDirectoryItems.length ? allDirectoryItems.map(p=>renderPersonRow(p,true,true)).join('') : '<div class="card-desc">No directory entries yet.</div>');
   }catch(e){ console.error('directory load failed', e); }
 }
 /* Directory: live photo sync — when anyone (member upload, staff approval,
@@ -1285,7 +1363,7 @@ window.filterDirectory = function(){
     const hay = [p.name, p.spouse_name, p.children].filter(Boolean).join(' ').toLowerCase();
     return hay.includes(q);
   }) : allDirectoryItems;
-  listEl.innerHTML = filtered.length ? filtered.map(p=>renderPersonRow(p,true,true)).join('') : '<div class="card-desc">No matches found.</div>';
+  listEl.innerHTML = memberBannerHtml('directory') + (filtered.length ? filtered.map(p=>renderPersonRow(p,true,true)).join('') : '<div class="card-desc">No matches found.</div>');
 };
 
 window.promptSelfPhoto = function(directoryId, target){
@@ -1869,6 +1947,7 @@ loadEvents();
 loadLeadership();
 loadDeacons();
 loadDirectory();
+verifyStoredMemberCode();
 loadGroups();
 loadVerseOfDay();
 loadAnnouncements();
