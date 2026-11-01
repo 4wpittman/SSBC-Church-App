@@ -510,7 +510,8 @@
       <div class="mini-header" style="justify-content:flex-end;"><button class="back-btn" onclick="showTab('home')" title="Home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg></button></div>
       <div class="section" style="padding-top:4px;">
         <div class="section-head"><h2>Chat</h2><button class="staff-toggle" id="staffModeBtn" onclick="toggleStaffMode()">Staff</button></div>
-        <div class="card-desc" style="margin-top:-8px; margin-bottom:14px;">Everything here is visible to everyone, including staff. Be kind!</div>
+        <div class="card-desc" style="margin-top:-8px; margin-bottom:14px;">Chat is for church members — everything posted is visible to members and staff. Be kind!</div>
+        <div id="chatGate"></div>
         <div id="chatRoomsList"><div class="card-desc">Loading...</div></div>
       </div>
     </div>
@@ -1225,7 +1226,7 @@ function memberBannerHtml(ctx){
   }
   return '<div style="background:#fff; border:1px solid rgba(27,22,64,.07); border-radius:14px; padding:14px; margin-bottom:10px;">'
     + '<div style="font-size:13.5px; font-weight:700; margin-bottom:3px;">Phone numbers are members-only</div>'
-    + '<div style="font-size:12.5px; color:var(--ink-soft); margin-bottom:10px;">Enter the member code once on this device to see them. Don\'t have it? Ask at the church office.</div>'
+    + '<div style="font-size:12.5px; color:var(--ink-soft); margin-bottom:10px;">Enter the member code once on this device to see them — the same code unlocks the chats. Don\'t have it? Ask at the church office.</div>'
     + '<div style="display:flex; gap:8px;"><input id="memberCodeInput-'+ctx+'" type="text" placeholder="Member code" autocomplete="off" onkeydown="if(event.key===\'Enter\') submitMemberCode(\''+ctx+'\')" style="flex:1; min-width:0; padding:10px 12px; border:1px solid rgba(27,22,64,.15); border-radius:10px; font-size:14px; font-family:inherit;">'
     + '<button onclick="submitMemberCode(\''+ctx+'\')" style="background:var(--gold,#D9A441); color:#131E33; border:none; border-radius:10px; padding:10px 16px; font-size:14px; font-weight:700; cursor:pointer; font-family:inherit;">Unlock</button></div>'
     + '<div id="memberCodeStatus-'+ctx+'" style="font-size:12px; margin-top:8px; display:none;"></div></div>';
@@ -1249,6 +1250,7 @@ window.submitMemberCode = async function(ctx){
       status.style.color = '#2E7D32';
       status.textContent = 'You\'re in — loading phone numbers...';
       loadLeadership(); loadDeacons(); loadDirectory();
+      renderChatGate(); loadChatRooms();
     } else {
       status.style.color = 'var(--brick)';
       status.textContent = 'That code didn\'t work — check the spelling, or ask at the church office.';
@@ -1264,7 +1266,27 @@ window.lockMemberView = function(){
     localStorage.removeItem('ssbc_member_ok');
   }catch(e){}
   loadLeadership(); loadDeacons(); loadDirectory();
+  renderChatGate(); loadChatRooms();
 };
+/* --- Chat member gate -----------------------------------------------------
+   Chats are members-only (William's call, 2026-11-01): the SAME member code
+   as the directory. One unlock covers both areas — the code lives in the
+   same localStorage keys either way and check_member_code verifies it.
+   Staff mode bypasses the gate so staff can always get in to moderate. --- */
+function chatBannerHtml(){
+  return '<div style="background:#fff; border:1px solid rgba(27,22,64,.07); border-radius:14px; padding:14px; margin-bottom:10px;">'
+    + '<div style="font-size:13.5px; font-weight:700; margin-bottom:3px;">Chat is members-only</div>'
+    + '<div style="font-size:12.5px; color:var(--ink-soft); margin-bottom:10px;">Enter the member code once on this device to join the chats. It\'s the same code as the church directory — entering it in either place unlocks both. Don\'t have it? Ask at the church office.</div>'
+    + '<div style="display:flex; gap:8px;"><input id="memberCodeInput-chat" type="text" placeholder="Member code" autocomplete="off" onkeydown="if(event.key===\'Enter\') submitMemberCode(\'chat\')" style="flex:1; min-width:0; padding:10px 12px; border:1px solid rgba(27,22,64,.15); border-radius:10px; font-size:14px; font-family:inherit;">'
+    + '<button onclick="submitMemberCode(\'chat\')" style="background:var(--gold,#D9A441); color:#131E33; border:none; border-radius:10px; padding:10px 16px; font-size:14px; font-weight:700; cursor:pointer; font-family:inherit;">Unlock</button></div>'
+    + '<div id="memberCodeStatus-chat" style="font-size:12px; margin-top:8px; display:none;"></div></div>';
+}
+function renderChatGate(){
+  const gate = document.getElementById('chatGate');
+  if(!gate) return;
+  if(memberVerified() || chatStaffMode()){ gate.innerHTML = ''; }
+  else { gate.innerHTML = chatBannerHtml(); }
+}
 /* A stored code can go stale (staff changed it): verify quietly on open,
    and if it no longer matches, drop it so the lists lock again. */
 async function verifyStoredMemberCode(){
@@ -2103,6 +2125,12 @@ async function refreshChatDots(rooms){
 }
 
 async function loadChatRooms(){
+  renderChatGate();
+  if(!memberVerified() && !chatStaffMode()){
+    const lockedEl = document.getElementById('chatRoomsList');
+    if(lockedEl) lockedEl.innerHTML = '<div class="card-desc">Enter the member code above to see the chat rooms.</div>';
+    return;
+  }
   try{
     const [groupsRes, settingsRes] = await Promise.all([
       supabase.from('groups').select('id,title').order('created_at', { ascending:true }),
@@ -2134,6 +2162,7 @@ async function loadChatRooms(){
 }
 
 window.openChatRoom = async function(roomId, roomLabel){
+  if(!memberVerified() && !chatStaffMode()){ showTab('chat'); return; }
   const st = chatRoomSetting(roomId);
   if(st && st.passcode && !chatRoomUnlocked(roomId)){
     const code = prompt('This room needs a passcode:');
@@ -2162,13 +2191,15 @@ window.openChatRoom = async function(roomId, roomLabel){
 async function loadChatMessages(roomId){
   const wrap = document.getElementById('chatMessagesWrap');
   wrap.innerHTML = '<div class="card-desc">Loading...</div>';
-  const { data: messages, error } = await supabase.from('chat_messages').select('*').eq('room_id', roomId).order('created_at', { ascending:true }).limit(200);
+  /* Only the latest 25 messages are ever loaded (William's call, 2026-11-01):
+     about 10 fit on screen; scrolling up reaches back through the rest. */
+  const { data: messages, error } = await supabase.from('chat_messages').select('*').eq('room_id', roomId).order('created_at', { ascending:false }).limit(25);
   if(error || !messages || messages.length === 0){
     wrap.innerHTML = '<div class="card-desc">No messages yet — be the first to say hello!</div>';
     return;
   }
   wrap.innerHTML = '';
-  messages.forEach(appendChatMessage);
+  messages.slice().reverse().forEach(appendChatMessage);
   wrap.scrollTop = wrap.scrollHeight;
 }
 
