@@ -178,6 +178,15 @@
           <button class="btn gold" onclick="saveSettings()">Save</button>
           <div class="status-msg" id="settingsStatus"></div>
         </div>
+        <div class="form-card" style="margin-top:16px;">
+          <h3 style="margin-top:0;">Member code — phone numbers in the app</h3>
+          <div class="card-desc" style="font-size:12px; color:var(--ink-soft); margin-bottom:12px;">
+            Phone numbers in the Directory, Deacons and Leadership lists stay hidden in the app until a member enters this code once on their device. Share the code with members — bulletin, an announcement, word of mouth. Anyone who has the app link but not the code sees names and photos only. Change the code any time: devices still holding the old code lose the numbers on their next visit.
+          </div>
+          <div class="field"><label>Member code</label><input id="memberCodeInput" placeholder="e.g. ssbc-family"></div>
+          <button class="btn gold" onclick="saveMemberCode()">Save member code</button>
+          <div class="status-msg" id="memberCodeStatus"></div>
+        </div>
       </div>
 
       <div class="panel" id="panel-sermons">
@@ -679,7 +688,36 @@ async function loadSettingsForm(){
   document.getElementById('s_youtubeUrl').value = s.youtube_url || '';
   document.getElementById('s_prayerEmail').value = s.prayer_notification_email || '';
   document.getElementById('s_calendarUrl').value = s.google_calendar_url || '';
+  loadMemberCode();
 }
+
+/* --- Member code: the shared code that unlocks phone numbers in the app.
+   Stored in member_access (staff-only table — the public app key cannot
+   read it; the database functions check the code server-side). --- */
+async function loadMemberCode(){
+  try{
+    const { data } = await supabase.from('member_access').select('code').eq('id', 1).maybeSingle();
+    if(data) document.getElementById('memberCodeInput').value = data.code || '';
+  }catch(e){ /* table not created yet — saveMemberCode explains the SQL step */ }
+}
+window.saveMemberCode = async function(){
+  const code = document.getElementById('memberCodeInput').value.trim();
+  const statusEl = document.getElementById('memberCodeStatus');
+  statusEl.style.display = 'block';
+  if(!code){
+    statusEl.className = 'status-msg err';
+    statusEl.textContent = 'Enter a code first — a word or a few numbers, something members will remember.';
+    return;
+  }
+  const { error } = await supabase.from('member_access').upsert({ id: 1, code });
+  if(error){
+    statusEl.className = 'status-msg err';
+    statusEl.textContent = 'Could not save. If this is the first time, run the member-contact-privacy.sql file once in Supabase (SQL Editor → paste → Run), then try again.';
+  } else {
+    statusEl.className = 'status-msg ok';
+    statusEl.textContent = 'Member code saved: "'+code+'". Members enter it once in the app to see phone numbers.';
+  }
+};
 /* One-tap live controls for phone use: paste the link, hit Go live now. */
 window.goLive = async function(){
   const url = document.getElementById('s_liveVideoUrl').value.trim();
